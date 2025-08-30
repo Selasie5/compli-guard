@@ -1,14 +1,17 @@
 import { Shield, Home, FileText, Settings, AlertTriangle, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Link, useLocation } from "react-router-dom";
 import shieldIcon from "@/assets/shield-icon.png";
 
 const Navigation = () => {
+  const location = useLocation();
+  
   const navItems = [
-    { icon: Home, label: "Dashboard", href: "#dashboard", active: true },
-    { icon: AlertTriangle, label: "Findings", href: "#findings" },
-    { icon: FileText, label: "Policies", href: "#policies" },
-    { icon: Download, label: "Evidence", href: "#evidence" },
-    { icon: Settings, label: "Integrations", href: "#integrations" },
+    { icon: Home, label: "Dashboard", href: "/" },
+    { icon: AlertTriangle, label: "Findings", href: "/findings" },
+    { icon: FileText, label: "Policies", href: "/policies" },
+    { icon: Download, label: "Evidence", href: "/evidence" },
+    { icon: Settings, label: "Integrations", href: "/integrations" },
   ];
 
   return (
@@ -24,15 +27,16 @@ const Navigation = () => {
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-1">
             {navItems.map((item) => (
-              <Button
-                key={item.label}
-                variant={item.active ? "default" : "ghost"}
-                size="sm"
-                className="flex items-center space-x-2"
-              >
-                <item.icon className="h-4 w-4" />
-                <span>{item.label}</span>
-              </Button>
+              <Link key={item.label} to={item.href}>
+                <Button
+                  variant={location.pathname === item.href ? "default" : "ghost"}
+                  size="sm"
+                  className="flex items-center space-x-2"
+                >
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </Button>
+              </Link>
             ))}
           </div>
 
