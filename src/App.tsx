@@ -3,12 +3,14 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
 import Findings from "./pages/Findings";
 import Policies from "./pages/Policies";
 import Evidence from "./pages/Evidence";
 import Integrations from "./pages/Integrations";
 import NotFound from "./pages/NotFound";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -19,11 +21,32 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/findings" element={<Findings />} />
-          <Route path="/policies" element={<Policies />} />
-          <Route path="/evidence" element={<Evidence />} />
-          <Route path="/integrations" element={<Integrations />} />
+          <Route path="/" element={<Login />} />
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/findings" element={
+            <ProtectedRoute>
+              <Findings />
+            </ProtectedRoute>
+          } />
+          <Route path="/policies" element={
+            <ProtectedRoute>
+              <Policies />
+            </ProtectedRoute>
+          } />
+          <Route path="/evidence" element={
+            <ProtectedRoute>
+              <Evidence />
+            </ProtectedRoute>
+          } />
+          <Route path="/integrations" element={
+            <ProtectedRoute>
+              <Integrations />
+            </ProtectedRoute>
+          } />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

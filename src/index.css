@@ -17,9 +17,9 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 215 25% 27%;
 
-    /* CompliGuard brand colors - professional security blue */
-    --primary: 221 100% 25%;
-    --primary-light: 221 70% 35%;
+    /* CompliGuard brand colors - warm orange */
+    --primary: 25 95% 53%;
+    --primary-light: 25 85% 65%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 214 20% 95%;
@@ -41,7 +41,7 @@ All colors MUST be HSL.
 
     --border: 214 20% 90%;
     --input: 214 20% 90%;
-    --ring: 221 100% 25%;
+    --ring: 25 95% 53%;
 
     /* CompliGuard specific design tokens */
     --compliance-excellent: 142 76% 36%;
@@ -50,17 +50,17 @@ All colors MUST be HSL.
     --compliance-critical: 0 84% 60%;
     
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(221 100% 25%), hsl(221 70% 35%));
-    --gradient-hero: linear-gradient(135deg, hsl(221 100% 25%) 0%, hsl(228 100% 35%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(25 95% 53%), hsl(25 85% 65%));
+    --gradient-hero: linear-gradient(135deg, hsl(25 95% 53%) 0%, hsl(35 90% 60%) 100%);
     --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(214 20% 98%) 100%);
     
     /* Shadows */
     --shadow-sm: 0 1px 2px hsl(215 25% 27% / 0.05);
     --shadow-md: 0 4px 6px hsl(215 25% 27% / 0.07), 0 2px 4px hsl(215 25% 27% / 0.06);
     --shadow-lg: 0 10px 15px hsl(215 25% 27% / 0.1), 0 4px 6px hsl(215 25% 27% / 0.05);
-    --shadow-primary: 0 4px 14px hsl(221 100% 25% / 0.25);
+    --shadow-primary: 0 4px 14px hsl(25 95% 53% / 0.25);
 
-    --radius: 0.5rem;
+    --radius: 0.25rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -124,6 +124,6 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-aeonik;
   }
 }
