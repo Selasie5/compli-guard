@@ -1,15 +1,27 @@
-import { Shield, Home, FileText, Settings, AlertTriangle, Download, LogOut } from "lucide-react";
+import { useState } from "react";
+import { Shield, Home, FileText, Settings, AlertTriangle, Download, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import shieldIcon from "@/assets/shield-icon.png";
 
 const Navigation = () => {
   const location = useLocation();
-  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const handleLogout = () => {
-    localStorage.removeItem("isAuthenticated");
-    navigate("/");
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await signOut();
+      toast.success('Signed out successfully');
+    } catch (error) {
+      console.error('Sign out error:', error);
+      toast.error('Failed to sign out');
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
   
   const navItems = [
@@ -48,17 +60,24 @@ const Navigation = () => {
 
           {/* User Menu */}
           <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+              <User className="h-4 w-4" />
+              <span>{user?.email}</span>
+            </div>
             <Button 
               variant="outline" 
               size="sm" 
               onClick={handleLogout}
+              disabled={isLoggingOut}
               className="flex items-center space-x-2"
             >
               <LogOut className="h-4 w-4" />
-              <span>Logout</span>
+              <span>{isLoggingOut ? 'Signing out...' : 'Logout'}</span>
             </Button>
             <div className="h-8 w-8 bg-primary rounded-full flex items-center justify-center">
-              <span className="text-xs font-medium text-primary-foreground">JS</span>
+              <span className="text-xs font-medium text-primary-foreground">
+                {user?.email?.charAt(0).toUpperCase() || 'U'}
+              </span>
             </div>
           </div>
         </div>

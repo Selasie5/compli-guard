@@ -1,9 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Shield, GitBranch, Cloud, FileText, Zap, CheckCircle2 } from "lucide-react";
+import { Shield, GitBranch, Cloud, FileText, Zap, CheckCircle2, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import heroImage from "@/assets/hero-compliance.jpg";
 
 const HeroSection = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
   const features = [
     {
       icon: GitBranch,
@@ -53,12 +58,36 @@ const HeroSection = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 mb-12">
-              <Button variant="hero" size="lg" className="bg-white text-primary hover:bg-blue-50">
-                Start Free Trial
-              </Button>
-              <Button variant="outline" size="lg" className="border-white text-white hover:bg-white/10">
-                View Demo
-              </Button>
+              {user ? (
+                <Button 
+                  variant="hero" 
+                  size="lg" 
+                  className="bg-white text-primary hover:bg-blue-50"
+                  onClick={() => navigate('/dashboard')}
+                >
+                  Go to Dashboard
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              ) : (
+                <>
+                  <Button 
+                    variant="hero" 
+                    size="lg" 
+                    className="bg-white text-primary hover:bg-blue-50"
+                    onClick={() => navigate('/auth')}
+                  >
+                    Start Free Trial
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="lg" 
+                    className="border-white text-white hover:bg-white/10"
+                    onClick={() => navigate('/auth')}
+                  >
+                    Sign In
+                  </Button>
+                </>
+              )}
             </div>
 
             {/* Stats */}
