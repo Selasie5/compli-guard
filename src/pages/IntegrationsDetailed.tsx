@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -40,10 +40,15 @@ const IntegrationsDetailed = () => {
     scanStatus, 
     connectIntegration, 
     disconnectIntegration,
-    startScan 
+    startScan,
+    loadIntegrations 
   } = useIntegrations();
 
   const [connecting, setConnecting] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadIntegrations();
+  }, []);
 
   const githubForm = useForm<z.infer<typeof githubSchema>>({
     resolver: zodResolver(githubSchema),

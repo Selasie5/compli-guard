@@ -4,17 +4,22 @@ import ComplianceScore from "@/components/ComplianceScore";
 import FindingsTable from "@/components/FindingsTable";
 import IntegrationsCard from "@/components/IntegrationsCard";
 import { DashboardSkeleton } from "@/components/LoadingStates";
+import { useIntegrations } from "@/hooks/useIntegrations";
 
 const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const { loadIntegrations } = useIntegrations();
 
   useEffect(() => {
-    // Simulate loading dashboard data
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
+    const initializeDashboard = async () => {
+      await loadIntegrations();
+      // Simulate loading dashboard data
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 1500);
+    };
 
-    return () => clearTimeout(timer);
+    initializeDashboard();
   }, []);
 
   if (isLoading) {

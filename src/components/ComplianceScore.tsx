@@ -2,9 +2,38 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { TrendingUp, Shield, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { useIntegrations } from "@/hooks/useIntegrations";
+import { useEffect } from "react";
 
 const ComplianceScore = () => {
-  const overallScore = 82;
+  const { findings, loadIntegrations } = useIntegrations();
+
+  useEffect(() => {
+    loadIntegrations();
+  }, []);
+
+  // Calculate compliance score based on findings
+  const calculateScore = () => {
+    if (findings.length === 0) return 0; // No scans performed yet
+    
+    const severityWeights = {
+      'critical': 10,
+      'high': 7,
+      'medium': 4,
+      'low': 2
+    };
+    
+    const totalDeductions = findings.reduce((sum, finding) => {
+      const weight = severityWeights[finding.severity?.toLowerCase()] || 2;
+      return sum + weight;
+    }, 0);
+    
+    // Start with 100 and deduct based on findings
+    const score = Math.max(0, 100 - totalDeductions);
+    return Math.round(score);
+  };
+
+  const overallScore = calculateScore();
   const controls = [
     { name: "Access Control", score: 95, status: "excellent" },
     { name: "Logging & Monitoring", score: 78, status: "good" },
@@ -45,37 +74,47 @@ const ComplianceScore = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="text-center">
-          <div className="relative inline-flex items-center justify-center w-32 h-32 mb-4">
-            <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 36 36">
-              <path
-                className="text-muted"
-                stroke="currentColor"
-                strokeWidth="3"
-                fill="none"
-                d="M18 2.0845
-                  a 15.9155 15.9155 0 0 1 0 31.831
-                  a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-              <path
-                className="text-primary"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeDasharray={`${overallScore}, 100`}
-                strokeLinecap="round"
-                fill="none"
-                d="M18 2.0845
-                  a 15.9155 15.9155 0 0 1 0 31.831
-                  a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-3xl font-bold text-primary">{overallScore}%</span>
+          {findings.length === 0 ? (
+            <div className="py-8">
+              <Shield className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <p className="text-lg font-semibold text-muted-foreground mb-2">No Scans Performed</p>
+              <p className="text-sm text-muted-foreground">Connect integrations and run a scan to see compliance score</p>
             </div>
-          </div>
-          <p className="text-sm text-muted-foreground">SOC 2 Readiness</p>
-          <Badge className="mt-2 bg-compliance-good text-white">
-            Good Standing
-          </Badge>
+          ) : (
+            <>
+              <div className="relative inline-flex items-center justify-center w-32 h-32 mb-4">
+                <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 36 36">
+                  <path
+                    className="text-muted"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="none"
+                    d="M18 2.0845
+                      a 15.9155 15.9155 0 0 1 0 31.831
+                      a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path
+                    className="text-primary"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeDasharray={`${overallScore}, 100`}
+                    strokeLinecap="round"
+                    fill="none"
+                    d="M18 2.0845
+                      a 15.9155 15.9155 0 0 1 0 31.831
+                      a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-3xl font-bold text-primary">{overallScore}%</span>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">SOC 2 Readiness</p>
+              <Badge className={`mt-2 ${overallScore >= 80 ? 'bg-compliance-excellent' : overallScore >= 60 ? 'bg-compliance-good' : 'bg-compliance-needs-work'} text-white`}>
+                {overallScore >= 80 ? 'Excellent' : overallScore >= 60 ? 'Good Standing' : 'Needs Work'}
+              </Badge>
+            </>
+          )}
         </CardContent>
       </Card>
 

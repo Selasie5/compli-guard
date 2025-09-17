@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Integration {
   id: string;
@@ -15,23 +16,76 @@ interface IntegrationsStore {
   scanProgress: number;
   scanStatus: string;
   findings: any[];
+  loadIntegrations: () => Promise<void>;
   connectIntegration: (type: Integration['type'], config: any) => Promise<void>;
   disconnectIntegration: (id: string) => void;
   startScan: () => Promise<void>;
+  pollScanProgress: (scanId: string) => Promise<void>;
 }
 
 export const useIntegrations = create<IntegrationsStore>((set, get) => ({
-  integrations: [
-    { id: '1', type: 'github', status: 'disconnected' },
-    { id: '2', type: 'aws', status: 'disconnected' },
-    { id: '3', type: 'jira', status: 'disconnected' },
-  ],
+  integrations: [],
   isScanning: false,
   scanProgress: 0,
   scanStatus: 'Ready to scan',
   findings: [],
 
+  loadIntegrations: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Get integrations from database
+    const { data: dbIntegrations } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('user_id', user.id);
+
+    // Create default integrations if none exist
+    const integrationTypes = ['github', 'aws', 'jira'] as const;
+    const existingTypes = dbIntegrations?.map(i => i.type) || [];
+    
+    for (const type of integrationTypes) {
+      if (!existingTypes.includes(type)) {
+        await supabase
+          .from('integrations')
+          .insert({
+            user_id: user.id,
+            type,
+            status: 'disconnected'
+          });
+      }
+    }
+
+    // Reload integrations
+    const { data: allIntegrations } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('user_id', user.id);
+
+    const formattedIntegrations = allIntegrations?.map(integration => ({
+      id: integration.id,
+      type: integration.type as Integration['type'],
+      status: integration.status as Integration['status'],
+      config: integration.config,
+      lastSync: integration.last_sync ? new Date(integration.last_sync) : undefined,
+      error: integration.error_message
+    })) || [];
+
+    set({ integrations: formattedIntegrations });
+
+    // Load findings
+    const { data: scanResults } = await supabase
+      .from('scan_results')
+      .select('*')
+      .eq('user_id', user.id);
+
+    set({ findings: scanResults || [] });
+  },
+
   connectIntegration: async (type, config) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
     const integrations = get().integrations;
     const integration = integrations.find(i => i.type === type);
     
@@ -46,28 +100,74 @@ export const useIntegrations = create<IntegrationsStore>((set, get) => ({
       )
     });
 
-    // Simulate connection process
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // Update integration in database
+      const { error } = await supabase
+        .from('integrations')
+        .update({
+          status: 'connected',
+          config,
+          credentials: { token: config.token },
+          last_sync: new Date().toISOString(),
+          error_message: null
+        })
+        .eq('id', integration.id);
 
-    // Simulate success/failure
-    const success = Math.random() > 0.1; // 90% success rate
+      if (error) throw error;
 
-    set({
-      integrations: integrations.map(i => 
-        i.type === type 
-          ? { 
-              ...i, 
-              status: success ? 'connected' : 'error',
-              config: success ? config : undefined,
-              lastSync: success ? new Date() : undefined,
-              error: success ? undefined : 'Connection failed. Please check your credentials.'
-            }
-          : i
-      )
-    });
+      set({
+        integrations: integrations.map(i => 
+          i.type === type 
+            ? { 
+                ...i, 
+                status: 'connected',
+                config,
+                lastSync: new Date(),
+                error: undefined
+              }
+            : i
+        )
+      });
+    } catch (error) {
+      console.error('Failed to connect integration:', error);
+      
+      await supabase
+        .from('integrations')
+        .update({
+          status: 'error',
+          error_message: 'Connection failed. Please check your credentials.'
+        })
+        .eq('id', integration.id);
+
+      set({
+        integrations: integrations.map(i => 
+          i.type === type 
+            ? { 
+                ...i, 
+                status: 'error',
+                error: 'Connection failed. Please check your credentials.'
+              }
+            : i
+        )
+      });
+    }
   },
 
-  disconnectIntegration: (id) => {
+  disconnectIntegration: async (id) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase
+      .from('integrations')
+      .update({
+        status: 'disconnected',
+        config: null,
+        credentials: null,
+        last_sync: null,
+        error_message: null
+      })
+      .eq('id', id);
+
     set({
       integrations: get().integrations.map(i => 
         i.id === id 
@@ -78,62 +178,86 @@ export const useIntegrations = create<IntegrationsStore>((set, get) => ({
   },
 
   startScan: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
     const connectedIntegrations = get().integrations.filter(i => i.status === 'connected');
     if (connectedIntegrations.length === 0) return;
 
     set({ isScanning: true, scanProgress: 0, scanStatus: 'Initializing scan...' });
 
-    // Simulate scan progress
-    const steps = [
-      { progress: 10, status: 'Connecting to integrations...' },
-      { progress: 25, status: 'Scanning GitHub repositories...' },
-      { progress: 45, status: 'Analyzing AWS configuration...' },
-      { progress: 65, status: 'Checking security policies...' },
-      { progress: 80, status: 'Generating compliance report...' },
-      { progress: 95, status: 'Finalizing results...' },
-      { progress: 100, status: 'Scan completed!' },
-    ];
+    try {
+      // Start scan for GitHub integration
+      const githubIntegration = connectedIntegrations.find(i => i.type === 'github');
+      if (githubIntegration && githubIntegration.config?.token) {
+        const scanId = crypto.randomUUID();
+        
+        // Start the scan via edge function
+        const { error } = await supabase.functions.invoke('github-scan', {
+          body: {
+            integrationId: githubIntegration.id,
+            scanId,
+            githubToken: githubIntegration.config.token,
+            userId: user.id
+          }
+        });
 
-    for (const step of steps) {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      set({ scanProgress: step.progress, scanStatus: step.status });
-    }
+        if (error) {
+          console.error('Scan failed:', error);
+          set({ 
+            isScanning: false, 
+            scanStatus: 'Scan failed: ' + error.message 
+          });
+          return;
+        }
 
-    // Generate sample findings
-    const sampleFindings = [
-      {
-        id: '1',
-        severity: 'high',
-        control: 'CC6.1 - Access Management',
-        resource: 'GitHub Repository: main-app',
-        description: 'Branch protection rules not enforced on main branch',
-        status: 'open',
-        evidence: 'No required reviews or status checks configured'
-      },
-      {
-        id: '2',
-        severity: 'medium',
-        control: 'CC6.7 - Encryption',
-        resource: 'AWS S3: user-uploads-bucket',
-        description: 'S3 bucket encryption not enabled',
-        status: 'open',
-        evidence: 'Default encryption disabled for sensitive data bucket'
-      },
-      {
-        id: '3',
-        severity: 'low',
-        control: 'CC7.1 - System Monitoring',
-        resource: 'AWS CloudTrail',
-        description: 'CloudTrail logging gaps detected',
-        status: 'open',
-        evidence: 'Missing logs for 2-hour period on 2024-01-15'
+        // Poll for progress updates
+        get().pollScanProgress(scanId);
       }
-    ];
+    } catch (error) {
+      console.error('Failed to start scan:', error);
+      set({ 
+        isScanning: false, 
+        scanStatus: 'Failed to start scan' 
+      });
+    }
+  },
 
-    set({ 
-      findings: sampleFindings, 
-      isScanning: false, 
-      scanStatus: 'Ready to scan' 
-    });
+  pollScanProgress: async (scanId: string) => {
+    const pollInterval = setInterval(async () => {
+      const { data: scanSession } = await supabase
+        .from('scan_sessions')
+        .select('*')
+        .eq('id', scanId)
+        .single();
+
+      if (scanSession) {
+        set({
+          scanProgress: scanSession.progress || 0,
+          scanStatus: scanSession.current_step || 'Scanning...'
+        });
+
+        if (scanSession.status === 'completed') {
+          clearInterval(pollInterval);
+          
+          // Reload findings
+          get().loadIntegrations();
+          
+          set({ 
+            isScanning: false, 
+            scanStatus: 'Ready to scan' 
+          });
+        } else if (scanSession.status === 'error') {
+          clearInterval(pollInterval);
+          set({ 
+            isScanning: false, 
+            scanStatus: 'Scan failed: ' + scanSession.error_message 
+          });
+        }
+      }
+    }, 2000);
+
+    // Stop polling after 5 minutes as a safety measure
+    setTimeout(() => clearInterval(pollInterval), 300000);
   },
 }));

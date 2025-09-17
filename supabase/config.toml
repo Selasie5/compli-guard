@@ -1,1 +1,30 @@
 project_id = "huhthdmdettqfkhaulro"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+port = 54324
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = ["https://127.0.0.1:3000"]
+jwt_expiry = 3600
+enable_signup = true
+enable_anonymous_sign_ins = false
+enable_manual_linking = false
+
+[edge_functions]
+enabled = true
+
+[functions.github-scan]
+verify_jwt = true
+
+[storage]
+enabled = true
+port = 54325
+file_size_limit = "50MiB"
+file_transform_enabled = true
