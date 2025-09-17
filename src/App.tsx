@@ -12,7 +12,7 @@ import Evidence from "./pages/Evidence";
 import IntegrationsDetailed from "./pages/IntegrationsDetailed";
 import Documentation from "./pages/Documentation";
 import NotFound from "./pages/NotFound";
-import HeroSection from "./components/HeroSection";
+import LandingPage from "./pages/LandingPage";
 
 const App = () => {
   const { user, loading } = useAuth();
@@ -30,7 +30,7 @@ const App = () => {
       <Toaster />
       <Routes>
         {/* Public routes */}
-        <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <HeroSection />} />
+        <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
         <Route path="/auth" element={user ? <Navigate to="/dashboard" replace /> : <Auth />} />
         <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
         
