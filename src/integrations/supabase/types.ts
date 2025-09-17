@@ -14,7 +14,140 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      integrations: {
+        Row: {
+          config: Json | null
+          created_at: string
+          credentials: Json | null
+          error_message: string | null
+          id: string
+          last_sync: string | null
+          status: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          credentials?: Json | null
+          error_message?: string | null
+          id?: string
+          last_sync?: string | null
+          status?: string
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          credentials?: Json | null
+          error_message?: string | null
+          id?: string
+          last_sync?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      scan_results: {
+        Row: {
+          can_autofix: boolean | null
+          control: string
+          created_at: string
+          description: string
+          evidence: Json | null
+          id: string
+          integration_id: string
+          resource: string
+          scan_id: string
+          severity: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          can_autofix?: boolean | null
+          control: string
+          created_at?: string
+          description: string
+          evidence?: Json | null
+          id?: string
+          integration_id: string
+          resource: string
+          scan_id?: string
+          severity: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          can_autofix?: boolean | null
+          control?: string
+          created_at?: string
+          description?: string
+          evidence?: Json | null
+          id?: string
+          integration_id?: string
+          resource?: string
+          scan_id?: string
+          severity?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_results_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scan_sessions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          current_step: string | null
+          error_message: string | null
+          id: string
+          progress: number | null
+          started_at: string | null
+          status: string
+          total_findings: number | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          current_step?: string | null
+          error_message?: string | null
+          id?: string
+          progress?: number | null
+          started_at?: string | null
+          status?: string
+          total_findings?: number | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          current_step?: string | null
+          error_message?: string | null
+          id?: string
+          progress?: number | null
+          started_at?: string | null
+          status?: string
+          total_findings?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
