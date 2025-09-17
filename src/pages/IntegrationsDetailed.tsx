@@ -1,12 +1,12 @@
 import { useState } from "react";
 import Layout from "@/components/Layout";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Github, Cloud, Zap, CheckCircle, XCircle, Clock, AlertCircle, Play } from "lucide-react";
 import { useIntegrations } from "@/hooks/useIntegrations";
@@ -26,6 +26,7 @@ const IntegrationsDetailed = () => {
   const [githubConfig, setGithubConfig] = useState({ token: '', org: '' });
   const [awsConfig, setAwsConfig] = useState({ accessKey: '', secretKey: '', region: 'us-east-1' });
   const [jiraConfig, setJiraConfig] = useState({ url: '', email: '', token: '' });
+  const [connecting, setConnecting] = useState<string | null>(null);
 
   const handleConnect = async (type: 'github' | 'aws' | 'jira') => {
     let config;
@@ -46,14 +47,16 @@ const IntegrationsDetailed = () => {
       return;
     }
 
-    toast.promise(
-      connectIntegration(type, config),
-      {
-        loading: `Connecting to ${type.toUpperCase()}...`,
-        success: `Successfully connected to ${type.toUpperCase()}!`,
-        error: `Failed to connect to ${type.toUpperCase()}`
-      }
-    );
+    setConnecting(type);
+    
+    try {
+      await connectIntegration(type, config);
+      toast.success(`Successfully connected to ${type.toUpperCase()}!`);
+    } catch (error) {
+      toast.error(`Failed to connect to ${type.toUpperCase()}`);
+    } finally {
+      setConnecting(null);
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -119,9 +122,14 @@ const IntegrationsDetailed = () => {
               onChange={(e) => setGithubConfig(prev => ({ ...prev, org: e.target.value }))}
             />
           </div>
-          <Button onClick={() => handleConnect('github')} className="w-full">
+          <LoadingButton 
+            onClick={() => handleConnect('github')} 
+            className="w-full"
+            loading={connecting === 'github'}
+            loadingText="Connecting..."
+          >
             Connect GitHub
-          </Button>
+          </LoadingButton>
         </div>
       </DialogContent>
     </Dialog>
@@ -170,9 +178,14 @@ const IntegrationsDetailed = () => {
               onChange={(e) => setAwsConfig(prev => ({ ...prev, region: e.target.value }))}
             />
           </div>
-          <Button onClick={() => handleConnect('aws')} className="w-full">
+          <LoadingButton 
+            onClick={() => handleConnect('aws')} 
+            className="w-full"
+            loading={connecting === 'aws'}
+            loadingText="Connecting..."
+          >
             Connect AWS
-          </Button>
+          </LoadingButton>
         </div>
       </DialogContent>
     </Dialog>
@@ -222,9 +235,14 @@ const IntegrationsDetailed = () => {
               onChange={(e) => setJiraConfig(prev => ({ ...prev, token: e.target.value }))}
             />
           </div>
-          <Button onClick={() => handleConnect('jira')} className="w-full">
+          <LoadingButton 
+            onClick={() => handleConnect('jira')} 
+            className="w-full"
+            loading={connecting === 'jira'}
+            loadingText="Connecting..."
+          >
             Connect Jira
-          </Button>
+          </LoadingButton>
         </div>
       </DialogContent>
     </Dialog>
@@ -402,14 +420,16 @@ const IntegrationsDetailed = () => {
                     {canScan ? 'Ready to scan' : isScanning ? scanStatus : 'Connect at least one integration to start scanning'}
                   </p>
                 </div>
-                <Button 
+                <LoadingButton 
                   onClick={startScan} 
                   disabled={!canScan}
                   className="flex items-center gap-2"
+                  loading={isScanning}
+                  loadingText="Scanning..."
                 >
                   <Play className="h-4 w-4" />
-                  {isScanning ? 'Scanning...' : 'Start Scan'}
-                </Button>
+                  Start Scan
+                </LoadingButton>
               </div>
 
               {isScanning && (

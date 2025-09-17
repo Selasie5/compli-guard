@@ -1,22 +1,46 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Shield } from "lucide-react";
+import { toast } from "sonner";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simple auth simulation - in real app, validate credentials
-    if (email && password) {
-      localStorage.setItem("isAuthenticated", "true");
-      navigate("/dashboard");
+    
+    if (!email || !password) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+
+    setIsLoading(true);
+
+    // Simulate authentication process
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Simple auth simulation - in real app, validate credentials
+      if (email && password) {
+        localStorage.setItem("isAuthenticated", "true");
+        toast.success("Welcome back! Redirecting to dashboard...");
+        
+        // Small delay before redirect for better UX
+        setTimeout(() => {
+          navigate("/dashboard");
+        }, 1000);
+      }
+    } catch (error) {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -57,12 +81,25 @@ const Login = () => {
                 required
               />
             </div>
-            <Button type="submit" className="w-full">
+            <LoadingButton 
+              type="submit" 
+              className="w-full"
+              loading={isLoading}
+              loadingText="Signing in..."
+            >
               Sign In
-            </Button>
+            </LoadingButton>
           </form>
           <div className="mt-4 text-center text-sm text-muted-foreground">
-            Demo: Use any email and password to continue
+            {isLoading ? (
+              <div className="flex items-center justify-center gap-2">
+                <div className="h-2 w-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                <div className="h-2 w-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                <div className="h-2 w-2 bg-primary rounded-full animate-bounce"></div>
+              </div>
+            ) : (
+              "Demo: Use any email and password to continue"
+            )}
           </div>
         </CardContent>
       </Card>
