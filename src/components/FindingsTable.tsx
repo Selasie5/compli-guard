@@ -7,9 +7,10 @@ import { useIntegrations } from "@/hooks/useIntegrations";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import ResolutionModal from "@/components/ResolutionModal";
+import ScanProgress from "@/components/ScanProgress";
 
 const FindingsTable = () => {
-  const { findings, loadIntegrations, startScan, isScanning } = useIntegrations();
+  const { findings, loadIntegrations, startScan, isScanning, scanProgress, scanStatus } = useIntegrations();
   const [selectedFinding, setSelectedFinding] = useState(null);
   const [isResolutionModalOpen, setIsResolutionModalOpen] = useState(false);
 
@@ -99,8 +100,10 @@ const FindingsTable = () => {
   const hasRealFindings = findings.length > 0;
 
   return (
-    <Card className="shadow-lg">
-      <CardHeader>
+    <div className="space-y-6">
+      <ScanProgress />
+      <Card className="shadow-lg">
+        <CardHeader>
         <div className="flex justify-between items-center">
           <CardTitle className="flex items-center space-x-2">
             <AlertTriangle className="h-5 w-5 text-destructive" />
@@ -121,7 +124,12 @@ const FindingsTable = () => {
               onClick={startScan}
               disabled={isScanning}
             >
-              {isScanning ? 'Scanning...' : 'Run New Scan'}
+              {isScanning ? (
+                <div className="flex items-center space-x-2">
+                  <div className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
+                  <span>{scanStatus || 'Scanning...'}</span>
+                </div>
+              ) : 'Run New Scan'}
             </Button>
           </div>
         </div>
@@ -224,6 +232,7 @@ const FindingsTable = () => {
         />
       </CardContent>
     </Card>
+    </div>
   );
 };
 

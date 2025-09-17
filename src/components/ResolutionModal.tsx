@@ -171,7 +171,11 @@ gh api repos/:owner/:repo/branches/main/protection \\
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+      <DialogContent 
+        className="max-w-4xl max-h-[85vh] overflow-y-auto"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <AlertTriangle className="h-5 w-5" />
