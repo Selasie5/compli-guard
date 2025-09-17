@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Play } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import heroImage from "@/assets/hero-compliance.jpg";
+
 
 const HeroSection = () => {
   const navigate = useNavigate();
@@ -85,15 +85,19 @@ const HeroSection = () => {
           )}
         </div>
 
-        {/* Product Screenshot */}
+        {/* Product Demo Video */}
         <div className="relative max-w-5xl mx-auto">
           <div className="relative rounded-xl overflow-hidden shadow-2xl border border-border">
-            <img 
-              src={heroImage} 
-              alt="CompliGuard Dashboard - Automated SOC 2 Compliance Management"
+            <video 
+              src="/demo-video.mp4" 
+              autoPlay
+              muted
+              loop
+              playsInline
               className="w-full h-auto"
+              aria-label="CompliGuard Dashboard Demo - Automated SOC 2 Compliance Management"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent pointer-events-none" />
           </div>
         </div>
       </div>
