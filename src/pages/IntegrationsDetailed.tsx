@@ -1,16 +1,36 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import Layout from "@/components/Layout";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Github, Cloud, Zap, CheckCircle, XCircle, Clock, AlertCircle, Play } from "lucide-react";
 import { useIntegrations } from "@/hooks/useIntegrations";
 import { toast } from "sonner";
+
+const githubSchema = z.object({
+  token: z.string().min(1, "Personal Access Token is required").regex(/^ghp_/, "Token must start with 'ghp_'"),
+  org: z.string().min(1, "Organization name is required"),
+});
+
+const awsSchema = z.object({
+  accessKey: z.string().min(1, "Access Key ID is required").min(16, "Access Key ID must be at least 16 characters"),
+  secretKey: z.string().min(1, "Secret Access Key is required").min(40, "Secret Access Key must be at least 40 characters"),
+  region: z.string().min(1, "Region is required"),
+});
+
+const jiraSchema = z.object({
+  url: z.string().min(1, "Jira URL is required").url("Please enter a valid URL"),
+  email: z.string().min(1, "Email is required").email("Please enter a valid email address"),
+  token: z.string().min(1, "API Token is required"),
+});
 
 const IntegrationsDetailed = () => {
   const { 
@@ -23,37 +43,57 @@ const IntegrationsDetailed = () => {
     startScan 
   } = useIntegrations();
 
-  const [githubConfig, setGithubConfig] = useState({ token: '', org: '' });
-  const [awsConfig, setAwsConfig] = useState({ accessKey: '', secretKey: '', region: 'us-east-1' });
-  const [jiraConfig, setJiraConfig] = useState({ url: '', email: '', token: '' });
   const [connecting, setConnecting] = useState<string | null>(null);
 
-  const handleConnect = async (type: 'github' | 'aws' | 'jira') => {
-    let config;
-    switch (type) {
-      case 'github':
-        config = githubConfig;
-        break;
-      case 'aws':
-        config = awsConfig;
-        break;
-      case 'jira':
-        config = jiraConfig;
-        break;
-    }
+  const githubForm = useForm<z.infer<typeof githubSchema>>({
+    resolver: zodResolver(githubSchema),
+    defaultValues: { token: '', org: '' },
+  });
 
-    if (!config || Object.values(config).some(v => !v)) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
+  const awsForm = useForm<z.infer<typeof awsSchema>>({
+    resolver: zodResolver(awsSchema),
+    defaultValues: { accessKey: '', secretKey: '', region: 'us-east-1' },
+  });
 
-    setConnecting(type);
-    
+  const jiraForm = useForm<z.infer<typeof jiraSchema>>({
+    resolver: zodResolver(jiraSchema),
+    defaultValues: { url: '', email: '', token: '' },
+  });
+
+  const handleGithubConnect = async (values: z.infer<typeof githubSchema>) => {
+    setConnecting('github');
     try {
-      await connectIntegration(type, config);
-      toast.success(`Successfully connected to ${type.toUpperCase()}!`);
+      await connectIntegration('github', values);
+      toast.success('Successfully connected to GitHub!');
+      githubForm.reset();
     } catch (error) {
-      toast.error(`Failed to connect to ${type.toUpperCase()}`);
+      toast.error('Failed to connect to GitHub');
+    } finally {
+      setConnecting(null);
+    }
+  };
+
+  const handleAwsConnect = async (values: z.infer<typeof awsSchema>) => {
+    setConnecting('aws');
+    try {
+      await connectIntegration('aws', values);
+      toast.success('Successfully connected to AWS!');
+      awsForm.reset();
+    } catch (error) {
+      toast.error('Failed to connect to AWS');
+    } finally {
+      setConnecting(null);
+    }
+  };
+
+  const handleJiraConnect = async (values: z.infer<typeof jiraSchema>) => {
+    setConnecting('jira');
+    try {
+      await connectIntegration('jira', values);
+      toast.success('Successfully connected to Jira!');
+      jiraForm.reset();
+    } catch (error) {
+      toast.error('Failed to connect to Jira');
     } finally {
       setConnecting(null);
     }
@@ -99,38 +139,54 @@ const IntegrationsDetailed = () => {
             Connect your GitHub organization to scan repositories for security compliance
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="github-token">Personal Access Token</Label>
-            <Input
-              id="github-token"
-              type="password"
-              placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-              value={githubConfig.token}
-              onChange={(e) => setGithubConfig(prev => ({ ...prev, token: e.target.value }))}
+        <Form {...githubForm}>
+          <form onSubmit={githubForm.handleSubmit(handleGithubConnect)} className="space-y-4">
+            <FormField
+              control={githubForm.control}
+              name="token"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Personal Access Token</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                      {...field}
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Token requires: repo, admin:org, user permissions
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              Token requires: repo, admin:org, user permissions
-            </p>
-          </div>
-          <div>
-            <Label htmlFor="github-org">Organization Name</Label>
-            <Input
-              id="github-org"
-              placeholder="your-organization"
-              value={githubConfig.org}
-              onChange={(e) => setGithubConfig(prev => ({ ...prev, org: e.target.value }))}
+            <FormField
+              control={githubForm.control}
+              name="org"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Organization Name</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="your-organization"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <LoadingButton 
-            onClick={() => handleConnect('github')} 
-            className="w-full"
-            loading={connecting === 'github'}
-            loadingText="Connecting..."
-          >
-            Connect GitHub
-          </LoadingButton>
-        </div>
+            <LoadingButton 
+              type="submit"
+              className="w-full"
+              loading={connecting === 'github'}
+              loadingText="Connecting..."
+            >
+              Connect GitHub
+            </LoadingButton>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
@@ -149,44 +205,67 @@ const IntegrationsDetailed = () => {
             Connect your AWS account to scan infrastructure for compliance issues
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="aws-key">Access Key ID</Label>
-            <Input
-              id="aws-key"
-              placeholder="AKIAIOSFODNN7EXAMPLE"
-              value={awsConfig.accessKey}
-              onChange={(e) => setAwsConfig(prev => ({ ...prev, accessKey: e.target.value }))}
+        <Form {...awsForm}>
+          <form onSubmit={awsForm.handleSubmit(handleAwsConnect)} className="space-y-4">
+            <FormField
+              control={awsForm.control}
+              name="accessKey"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Access Key ID</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="AKIAIOSFODNN7EXAMPLE"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div>
-            <Label htmlFor="aws-secret">Secret Access Key</Label>
-            <Input
-              id="aws-secret"
-              type="password"
-              placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-              value={awsConfig.secretKey}
-              onChange={(e) => setAwsConfig(prev => ({ ...prev, secretKey: e.target.value }))}
+            <FormField
+              control={awsForm.control}
+              name="secretKey"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Secret Access Key</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div>
-            <Label htmlFor="aws-region">Default Region</Label>
-            <Input
-              id="aws-region"
-              placeholder="us-east-1"
-              value={awsConfig.region}
-              onChange={(e) => setAwsConfig(prev => ({ ...prev, region: e.target.value }))}
+            <FormField
+              control={awsForm.control}
+              name="region"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Default Region</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="us-east-1"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <LoadingButton 
-            onClick={() => handleConnect('aws')} 
-            className="w-full"
-            loading={connecting === 'aws'}
-            loadingText="Connecting..."
-          >
-            Connect AWS
-          </LoadingButton>
-        </div>
+            <LoadingButton 
+              type="submit"
+              className="w-full"
+              loading={connecting === 'aws'}
+              loadingText="Connecting..."
+            >
+              Connect AWS
+            </LoadingButton>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
@@ -205,45 +284,68 @@ const IntegrationsDetailed = () => {
             Connect Jira to automatically create tickets for security findings
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="jira-url">Jira Instance URL</Label>
-            <Input
-              id="jira-url"
-              placeholder="https://yourcompany.atlassian.net"
-              value={jiraConfig.url}
-              onChange={(e) => setJiraConfig(prev => ({ ...prev, url: e.target.value }))}
+        <Form {...jiraForm}>
+          <form onSubmit={jiraForm.handleSubmit(handleJiraConnect)} className="space-y-4">
+            <FormField
+              control={jiraForm.control}
+              name="url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Jira Instance URL</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="https://yourcompany.atlassian.net"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div>
-            <Label htmlFor="jira-email">Email</Label>
-            <Input
-              id="jira-email"
-              type="email"
-              placeholder="user@yourcompany.com"
-              value={jiraConfig.email}
-              onChange={(e) => setJiraConfig(prev => ({ ...prev, email: e.target.value }))}
+            <FormField
+              control={jiraForm.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder="user@yourcompany.com"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div>
-            <Label htmlFor="jira-token">API Token</Label>
-            <Input
-              id="jira-token"
-              type="password"
-              placeholder="Your Jira API token"
-              value={jiraConfig.token}
-              onChange={(e) => setJiraConfig(prev => ({ ...prev, token: e.target.value }))}
+            <FormField
+              control={jiraForm.control}
+              name="token"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>API Token</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="Your Jira API token"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <LoadingButton 
-            onClick={() => handleConnect('jira')} 
-            className="w-full"
-            loading={connecting === 'jira'}
-            loadingText="Connecting..."
-          >
-            Connect Jira
-          </LoadingButton>
-        </div>
+            <LoadingButton 
+              type="submit"
+              className="w-full"
+              loading={connecting === 'jira'}
+              loadingText="Connecting..."
+            >
+              Connect Jira
+            </LoadingButton>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
