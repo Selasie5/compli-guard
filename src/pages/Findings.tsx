@@ -1,44 +1,45 @@
-import Navigation from "@/components/Navigation";
+import Layout from "@/components/Layout";
+import { useIntegrations } from "@/hooks/useIntegrations";
 import FindingsTable from "@/components/FindingsTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, TrendingUp, Shield, CheckCircle2 } from "lucide-react";
 
 const Findings = () => {
+  const { findings } = useIntegrations();
+
   const findingsStats = [
     {
       icon: AlertTriangle,
       title: "Critical Findings",
-      value: "3",
+      value: findings.filter(f => f.severity === 'high').length.toString(),
       trend: "+1 this week",
-      color: "text-compliance-critical"
+      color: "text-destructive"
     },
     {
       icon: Shield,
       title: "High Priority",
-      value: "8", 
+      value: findings.filter(f => f.severity === 'medium').length.toString(),
       trend: "-2 from last week",
-      color: "text-compliance-needs-attention"
+      color: "text-warning"
     },
     {
       icon: TrendingUp,
-      title: "Medium Issues",
-      value: "15",
+      title: "Low Issues",
+      value: findings.filter(f => f.severity === 'low').length.toString(),
       trend: "+3 this week", 
-      color: "text-compliance-good"
+      color: "text-muted-foreground"
     },
     {
       icon: CheckCircle2,
       title: "Resolved",
       value: "42",
       trend: "+12 this week",
-      color: "text-compliance-excellent"
+      color: "text-success"
     }
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
-      
+    <Layout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Security Findings</h1>
@@ -64,9 +65,22 @@ const Findings = () => {
         </div>
 
         {/* Findings Table */}
-        <FindingsTable />
+        {findings.length > 0 ? (
+          <FindingsTable />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>No Findings Available</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Run a security scan from the Integrations page to see compliance findings here.
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
-    </div>
+    </Layout>
   );
 };
 

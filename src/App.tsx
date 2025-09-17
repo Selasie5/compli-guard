@@ -8,7 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Findings from "./pages/Findings";
 import Policies from "./pages/Policies";
 import Evidence from "./pages/Evidence";
-import Integrations from "./pages/Integrations";
+import IntegrationsDetailed from "./pages/IntegrationsDetailed";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -44,7 +44,7 @@ const App = () => (
           } />
           <Route path="/integrations" element={
             <ProtectedRoute>
-              <Integrations />
+              <IntegrationsDetailed />
             </ProtectedRoute>
           } />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

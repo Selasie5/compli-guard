@@ -1,4 +1,4 @@
-import Navigation from "@/components/Navigation";
+import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,74 +54,21 @@ const Policies = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
-      
+    <Layout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Compliance Policies</h1>
-            <p className="text-muted-foreground">Manage and maintain your SOC 2 compliance documentation</p>
-          </div>
-          <Button variant="hero" className="flex items-center space-x-2">
-            <Plus className="h-4 w-4" />
-            <span>Generate New Policy</span>
-          </Button>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground mb-2">Compliance Policies</h1>
+          <p className="text-muted-foreground">Manage your SOC 2 compliance policies and documentation</p>
         </div>
-
-        {/* Policies Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {policies.map((policy) => (
-            <Card key={policy.title} className="shadow-lg hover:shadow-xl transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <FileText className="h-6 w-6 text-primary" />
-                    <div>
-                      <CardTitle className="text-lg">{policy.title}</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">{policy.description}</p>
-                    </div>
-                  </div>
-                  {getStatusBadge(policy.status)}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Version:</span>
-                    <span className="font-medium">{policy.version}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Last Updated:</span>
-                    <span className="font-medium">{policy.lastUpdated}</span>
-                  </div>
-                  <div className="space-y-2">
-                    <span className="text-sm text-muted-foreground">SOC 2 Controls:</span>
-                    <div className="flex flex-wrap gap-1">
-                      {policy.controls.map((control) => (
-                        <Badge key={control} variant="outline" className="text-xs">
-                          {control}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex space-x-2 pt-4">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <Download className="h-4 w-4 mr-2" />
-                      Export
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        
+        <div className="text-center py-12">
+          <h2 className="text-xl font-semibold text-muted-foreground mb-4">Coming Soon</h2>
+          <p className="text-muted-foreground">
+            This page will display AI-generated policies and documentation.
+          </p>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 
