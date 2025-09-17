@@ -45,6 +45,9 @@ const IntegrationsDetailed = () => {
   } = useIntegrations();
 
   const [connecting, setConnecting] = useState<string | null>(null);
+  const [openGithub, setOpenGithub] = useState(false);
+  const [openAws, setOpenAws] = useState(false);
+  const [openJira, setOpenJira] = useState(false);
 
   useEffect(() => {
     loadIntegrations();
@@ -94,6 +97,7 @@ const IntegrationsDetailed = () => {
       console.log('✅ GitHub connection successful!');
       toast.success(`Successfully connected to GitHub as ${githubUser.login}!`);
       githubForm.reset();
+      setOpenGithub(false);
     } catch (error) {
       console.error('❌ GitHub connection failed:', error);
       toast.error(`Failed to connect to GitHub: ${error.message || 'Unknown error'}`);
@@ -109,6 +113,7 @@ const IntegrationsDetailed = () => {
       await connectIntegration('aws', values);
       toast.success('Successfully connected to AWS!');
       awsForm.reset();
+      setOpenAws(false);
     } catch (error) {
       toast.error('Failed to connect to AWS');
     } finally {
@@ -122,6 +127,7 @@ const IntegrationsDetailed = () => {
       await connectIntegration('jira', values);
       toast.success('Successfully connected to Jira!');
       jiraForm.reset();
+      setOpenJira(false);
     } catch (error) {
       toast.error('Failed to connect to Jira');
     } finally {
@@ -156,13 +162,13 @@ const IntegrationsDetailed = () => {
   };
 
   const GitHubConnectionDialog = () => (
-    <Dialog>
+    <Dialog open={openGithub} onOpenChange={setOpenGithub}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           Configure
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent onInteractOutside={(e) => e.preventDefault()} onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Connect GitHub</DialogTitle>
           <DialogDescription>
@@ -223,13 +229,13 @@ const IntegrationsDetailed = () => {
   );
 
   const AWSConnectionDialog = () => (
-    <Dialog>
+    <Dialog open={openAws} onOpenChange={setOpenAws}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           Configure
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent onInteractOutside={(e) => e.preventDefault()} onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Connect AWS</DialogTitle>
           <DialogDescription>
@@ -302,13 +308,13 @@ const IntegrationsDetailed = () => {
   );
 
   const JiraConnectionDialog = () => (
-    <Dialog>
+    <Dialog open={openJira} onOpenChange={setOpenJira}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           Configure
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent onInteractOutside={(e) => e.preventDefault()} onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Connect Jira</DialogTitle>
           <DialogDescription>
