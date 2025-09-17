@@ -66,14 +66,39 @@ const IntegrationsDetailed = () => {
   });
 
   const handleGithubConnect = async (values: z.infer<typeof githubSchema>) => {
+    console.log('🔄 Starting GitHub connection process...', values);
     setConnecting('github');
+    
     try {
+      // First validate the GitHub token
+      console.log('🔍 Validating GitHub token...');
+      const testResponse = await fetch('https://api.github.com/user', {
+        headers: {
+          'Authorization': `Bearer ${values.token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'CompliGuard-Scanner'
+        }
+      });
+
+      if (!testResponse.ok) {
+        const errorText = await testResponse.text();
+        console.error('❌ GitHub token validation failed:', testResponse.status, errorText);
+        throw new Error(`Invalid GitHub token: ${testResponse.status === 401 ? 'Token is invalid or expired' : `HTTP ${testResponse.status}`}`);
+      }
+
+      const githubUser = await testResponse.json();
+      console.log('✅ GitHub token validated for user:', githubUser.login);
+
+      console.log('🔗 Calling connectIntegration...');
       await connectIntegration('github', values);
-      toast.success('Successfully connected to GitHub!');
+      console.log('✅ GitHub connection successful!');
+      toast.success(`Successfully connected to GitHub as ${githubUser.login}!`);
       githubForm.reset();
     } catch (error) {
-      toast.error('Failed to connect to GitHub');
+      console.error('❌ GitHub connection failed:', error);
+      toast.error(`Failed to connect to GitHub: ${error.message || 'Unknown error'}`);
     } finally {
+      console.log('🏁 GitHub connection process completed');
       setConnecting(null);
     }
   };
@@ -187,6 +212,7 @@ const IntegrationsDetailed = () => {
               className="w-full"
               loading={connecting === 'github'}
               loadingText="Connecting..."
+              disabled={connecting === 'github'}
             >
               Connect GitHub
             </LoadingButton>

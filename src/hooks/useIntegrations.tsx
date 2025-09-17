@@ -83,14 +83,26 @@ export const useIntegrations = create<IntegrationsStore>((set, get) => ({
   },
 
   connectIntegration: async (type, config) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    console.log('🔧 connectIntegration called with:', { type, config });
+    
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    console.log('👤 Current user:', user?.id, userError);
+    
+    if (!user) {
+      console.error('❌ No authenticated user found');
+      throw new Error('You must be logged in to connect integrations');
+    }
 
     const integrations = get().integrations;
     const integration = integrations.find(i => i.type === type);
+    console.log('🔍 Found integration:', integration);
     
-    if (!integration) return;
+    if (!integration) {
+      console.error('❌ Integration not found for type:', type);
+      throw new Error(`Integration type ${type} not found`);
+    }
 
+    console.log('📡 Updating integration status to connecting...');
     // Update to connecting status
     set({
       integrations: integrations.map(i => 
@@ -101,6 +113,7 @@ export const useIntegrations = create<IntegrationsStore>((set, get) => ({
     });
 
     try {
+      console.log('💾 Updating integration in database...');
       // Update integration in database
       const { error } = await supabase
         .from('integrations')
@@ -113,8 +126,12 @@ export const useIntegrations = create<IntegrationsStore>((set, get) => ({
         })
         .eq('id', integration.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Database update error:', error);
+        throw error;
+      }
 
+      console.log('✅ Database updated successfully, updating local state...');
       set({
         integrations: integrations.map(i => 
           i.type === type 
@@ -128,28 +145,35 @@ export const useIntegrations = create<IntegrationsStore>((set, get) => ({
             : i
         )
       });
-    } catch (error) {
-      console.error('Failed to connect integration:', error);
       
+      console.log('✅ Integration connected successfully!');
+    } catch (error) {
+      console.error('❌ Failed to connect integration:', error);
+      
+      // Update database with error status
       await supabase
         .from('integrations')
         .update({
           status: 'error',
-          error_message: 'Connection failed. Please check your credentials.'
+          error_message: error.message || 'Connection failed. Please check your credentials.'
         })
         .eq('id', integration.id);
 
+      // Update local state with error
       set({
         integrations: integrations.map(i => 
           i.type === type 
             ? { 
                 ...i, 
                 status: 'error',
-                error: 'Connection failed. Please check your credentials.'
+                error: error.message || 'Connection failed. Please check your credentials.'
               }
             : i
         )
       });
+      
+      // Re-throw the error so the UI can handle it
+      throw error;
     }
   },
 
