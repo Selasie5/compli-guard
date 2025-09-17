@@ -14,32 +14,6 @@ const Policies = () => {
     loadIntegrations();
   }, []);
 
-  // Generate policies based on scan findings
-  const generatedPolicies = useMemo(() => {
-    const policyMap = new Map();
-
-    findings.forEach(finding => {
-      const controlCategory = finding.control?.split(' - ')[0] || 'Unknown';
-      
-      if (!policyMap.has(controlCategory)) {
-        policyMap.set(controlCategory, {
-          id: controlCategory,
-          title: getPolicyTitle(controlCategory),
-          description: getPolicyDescription(controlCategory),
-          status: finding.severity === 'critical' || finding.severity === 'high' ? 'needs_attention' : 'compliant',
-          controls: [controlCategory],
-          findings: [],
-          lastUpdated: new Date().toISOString().split('T')[0],
-          version: 'v1.0'
-        });
-      }
-      
-      policyMap.get(controlCategory).findings.push(finding);
-    });
-
-    return Array.from(policyMap.values());
-  }, [findings]);
-
   const getPolicyTitle = (control: string) => {
     const titles = {
       'CC6.1': 'Access Control Policy',
@@ -88,6 +62,32 @@ const Policies = () => {
       default: return 'text-muted-foreground';
     }
   };
+
+  // Generate policies based on scan findings
+  const generatedPolicies = useMemo(() => {
+    const policyMap = new Map();
+
+    findings.forEach(finding => {
+      const controlCategory = finding.control?.split(' - ')[0] || 'Unknown';
+      
+      if (!policyMap.has(controlCategory)) {
+        policyMap.set(controlCategory, {
+          id: controlCategory,
+          title: getPolicyTitle(controlCategory),
+          description: getPolicyDescription(controlCategory),
+          status: finding.severity === 'critical' || finding.severity === 'high' ? 'needs_attention' : 'compliant',
+          controls: [controlCategory],
+          findings: [],
+          lastUpdated: new Date().toISOString().split('T')[0],
+          version: 'v1.0'
+        });
+      }
+      
+      policyMap.get(controlCategory).findings.push(finding);
+    });
+
+    return Array.from(policyMap.values());
+  }, [findings]);
 
   return (
     <Layout>

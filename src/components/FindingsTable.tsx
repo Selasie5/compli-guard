@@ -2,13 +2,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, Shield, GitPullRequest, ExternalLink } from "lucide-react";
+import { AlertTriangle, Shield, GitPullRequest, ExternalLink, Eye } from "lucide-react";
 import { useIntegrations } from "@/hooks/useIntegrations";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
+import ResolutionModal from "@/components/ResolutionModal";
 
 const FindingsTable = () => {
   const { findings, loadIntegrations, startScan, isScanning } = useIntegrations();
+  const [selectedFinding, setSelectedFinding] = useState(null);
+  const [isResolutionModalOpen, setIsResolutionModalOpen] = useState(false);
 
   useEffect(() => {
     loadIntegrations();
@@ -171,15 +174,39 @@ const FindingsTable = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-1">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <ExternalLink className="h-3 w-3" />
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0"
+                        title="View Details"
+                        onClick={() => {
+                          setSelectedFinding(finding);
+                          setIsResolutionModalOpen(true);
+                        }}
+                      >
+                        <Eye className="h-3 w-3" />
                       </Button>
-                      {finding.can_autofix && (
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      {(finding.can_autofix || finding.canAutofix) && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0"
+                          title="Auto-fix (Coming Soon)"
+                          disabled
+                        >
                           <GitPullRequest className="h-3 w-3" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0"
+                        title="View Resolution"
+                        onClick={() => {
+                          setSelectedFinding(finding);
+                          setIsResolutionModalOpen(true);
+                        }}
+                      >
                         <Shield className="h-3 w-3" />
                       </Button>
                     </div>
@@ -189,6 +216,12 @@ const FindingsTable = () => {
             </TableBody>
           </Table>
         )}
+        
+        <ResolutionModal
+          isOpen={isResolutionModalOpen}
+          onClose={() => setIsResolutionModalOpen(false)}
+          finding={selectedFinding}
+        />
       </CardContent>
     </Card>
   );

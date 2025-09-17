@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { TrendingUp, Shield, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useIntegrations } from "@/hooks/useIntegrations";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
 const ComplianceScore = () => {
   const { findings, loadIntegrations } = useIntegrations();
@@ -34,14 +34,58 @@ const ComplianceScore = () => {
   };
 
   const overallScore = calculateScore();
-  const controls = [
-    { name: "Access Control", score: 95, status: "excellent" },
-    { name: "Logging & Monitoring", score: 78, status: "good" },
-    { name: "Encryption", score: 85, status: "excellent" },
-    { name: "Backup & Recovery", score: 70, status: "needs-work" },
-    { name: "Change Management", score: 90, status: "excellent" },
-    { name: "Incident Response", score: 65, status: "needs-work" },
-  ];
+  
+  // Calculate control scores based on actual findings
+  const controls = useMemo(() => {
+    const controlMap = new Map();
+    
+    // Initialize controls with base scores
+    const baseControls = [
+      "Access Control", "Logging & Monitoring", "Encryption", 
+      "Backup & Recovery", "Change Management", "Incident Response"
+    ];
+    
+    baseControls.forEach(control => {
+      controlMap.set(control, { name: control, findings: [], baseScore: 100 });
+    });
+    
+    // Map findings to controls
+    findings.forEach(finding => {
+      const control = finding.control?.split(' - ')[1] || finding.control || 'Other';
+      let matchedControl = 'Other';
+      
+      if (control.toLowerCase().includes('access') || control.toLowerCase().includes('iam')) {
+        matchedControl = 'Access Control';
+      } else if (control.toLowerCase().includes('log') || control.toLowerCase().includes('monitor')) {
+        matchedControl = 'Logging & Monitoring';
+      } else if (control.toLowerCase().includes('encrypt')) {
+        matchedControl = 'Encryption';
+      } else if (control.toLowerCase().includes('backup') || control.toLowerCase().includes('recovery')) {
+        matchedControl = 'Backup & Recovery';
+      } else if (control.toLowerCase().includes('change')) {
+        matchedControl = 'Change Management';
+      } else if (control.toLowerCase().includes('incident')) {
+        matchedControl = 'Incident Response';
+      }
+      
+      if (controlMap.has(matchedControl)) {
+        controlMap.get(matchedControl).findings.push(finding);
+      }
+    });
+    
+    // Calculate scores based on findings
+    return Array.from(controlMap.values()).map(control => {
+      const severityWeights = { 'critical': 15, 'high': 10, 'medium': 6, 'low': 3 };
+      const deductions = control.findings.reduce((sum, finding) => {
+        return sum + (severityWeights[finding.severity?.toLowerCase()] || 3);
+      }, 0);
+      
+      const score = Math.max(0, control.baseScore - deductions);
+      const status = score >= 90 ? 'excellent' : score >= 70 ? 'good' : score >= 50 ? 'needs-work' : 'critical';
+      
+      return { name: control.name, score: Math.round(score), status };
+    });
+  }, [findings]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

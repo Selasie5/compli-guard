@@ -3,13 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Archive, Calendar, Clock, CheckCircle2, FileText, Shield, Database, Github, Cloud } from "lucide-react";
+import { Download, Archive, Calendar, Clock, CheckCircle2, FileText, Shield, Database, Github, Cloud, Eye } from "lucide-react";
 import { useIntegrations } from "@/hooks/useIntegrations";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
+import EvidenceModal from "@/components/EvidenceModal";
 
 const Evidence = () => {
   const { findings, integrations, loadIntegrations } = useIntegrations();
+  const [selectedEvidencePack, setSelectedEvidencePack] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     loadIntegrations();
@@ -193,10 +196,26 @@ const Evidence = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-1">
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <Download className="h-3 w-3" />
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0"
+                              onClick={() => {
+                                setSelectedEvidencePack(pack);
+                                setIsModalOpen(true);
+                              }}
+                            >
+                              <Eye className="h-3 w-3" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0"
+                              onClick={() => {
+                                setSelectedEvidencePack(pack);
+                                setIsModalOpen(true);
+                              }}
+                            >
                               <FileText className="h-3 w-3" />
                             </Button>
                           </div>
@@ -257,6 +276,13 @@ const Evidence = () => {
             </Card>
           </div>
         )}
+        
+        <EvidenceModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          evidencePack={selectedEvidencePack}
+          findings={findings}
+        />
       </div>
     </Layout>
   );
