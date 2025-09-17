@@ -7,7 +7,8 @@ import {
   Shield,
   ChevronRight,
   Building2,
-  BookOpen
+  BookOpen,
+  User
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -32,6 +33,7 @@ const mainItems = [
 
 const managementItems = [
   { title: "Integrations", url: "/integrations", icon: Settings },
+  { title: "Profile", url: "/profile", icon: User },
   { title: "Documentation", url: "/documentation", icon: BookOpen },
 ];
 

@@ -11,6 +11,7 @@ import Policies from "./pages/Policies";
 import Evidence from "./pages/Evidence";
 import IntegrationsDetailed from "./pages/IntegrationsDetailed";
 import Documentation from "./pages/Documentation";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import LandingPage from "./pages/LandingPage";
 
@@ -40,6 +41,7 @@ const App = () => {
         <Route path="/policies" element={user ? <Policies /> : <Navigate to="/auth" replace />} />
         <Route path="/evidence" element={user ? <Evidence /> : <Navigate to="/auth" replace />} />
         <Route path="/integrations" element={user ? <IntegrationsDetailed /> : <Navigate to="/auth" replace />} />
+        <Route path="/profile" element={user ? <Profile /> : <Navigate to="/auth" replace />} />
         <Route path="/documentation" element={user ? <Documentation /> : <Navigate to="/auth" replace />} />
         
         {/* Catch all route */}

@@ -248,40 +248,104 @@ export const useIntegrations = create<IntegrationsStore>((set, get) => ({
   },
 
   pollScanProgress: async (scanId: string) => {
+    let pollCount = 0;
+    const maxPolls = 150; // 5 minutes at 2-second intervals
+    
     const pollInterval = setInterval(async () => {
-      const { data: scanSession } = await supabase
-        .from('scan_sessions')
-        .select('*')
-        .eq('id', scanId)
-        .single();
+      pollCount++;
+      
+      try {
+        const { data: scanSession, error } = await supabase
+          .from('scan_sessions')
+          .select('*')
+          .eq('id', scanId)
+          .single();
 
-      if (scanSession) {
-        set({
-          scanProgress: scanSession.progress || 0,
-          scanStatus: scanSession.current_step || 'Scanning...'
-        });
-
-        if (scanSession.status === 'completed') {
-          clearInterval(pollInterval);
-          
-          // Reload findings
-          get().loadIntegrations();
-          
-          set({ 
-            isScanning: false, 
-            scanStatus: 'Ready to scan' 
-          });
-        } else if (scanSession.status === 'error') {
+        if (error) {
+          console.error('Error polling scan progress:', error);
           clearInterval(pollInterval);
           set({ 
             isScanning: false, 
-            scanStatus: 'Scan failed: ' + scanSession.error_message 
+            scanStatus: 'Error checking scan status',
+            scanProgress: 0
           });
+          return;
         }
+
+        if (scanSession) {
+          const progress = Math.min(scanSession.progress || 0, 100);
+          set({
+            scanProgress: progress,
+            scanStatus: scanSession.current_step || 'Scanning...'
+          });
+
+          if (scanSession.status === 'completed') {
+            clearInterval(pollInterval);
+            
+            // Reload findings
+            await get().loadIntegrations();
+            
+            set({ 
+              isScanning: false, 
+              scanStatus: 'Scan completed successfully',
+              scanProgress: 100
+            });
+
+            // Show success toast
+            setTimeout(() => {
+              import('sonner').then(({ toast }) => {
+                toast.success(`Scan completed! Found ${scanSession.total_findings || 0} findings.`);
+              });
+            }, 0);
+            
+          } else if (scanSession.status === 'error') {
+            clearInterval(pollInterval);
+            const errorMsg = scanSession.error_message || 'Unknown error occurred';
+            set({ 
+              isScanning: false, 
+              scanStatus: 'Scan failed: ' + errorMsg,
+              scanProgress: 0
+            });
+
+            // Show error toast
+            setTimeout(() => {
+              import('sonner').then(({ toast }) => {
+                toast.error('Scan failed: ' + errorMsg);
+              });
+            }, 0);
+          }
+        }
+        
+        // Stop polling after max attempts
+        if (pollCount >= maxPolls) {
+          clearInterval(pollInterval);
+          set({ 
+            isScanning: false, 
+            scanStatus: 'Scan timeout - please try again',
+            scanProgress: 0
+          });
+          
+          setTimeout(() => {
+            import('sonner').then(({ toast }) => {
+              toast.error('Scan timed out. Please try again.');
+            });
+          }, 0);
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+        clearInterval(pollInterval);
+        set({ 
+          isScanning: false, 
+          scanStatus: 'Error during scan',
+          scanProgress: 0
+        });
+        
+        setTimeout(() => {
+          import('sonner').then(({ toast }) => {
+            toast.error('Error during scan. Please try again.');
+          });
+        }, 0);
       }
     }, 2000);
-
-    // Stop polling after 5 minutes as a safety measure
-    setTimeout(() => clearInterval(pollInterval), 300000);
   },
 }));
