@@ -2,6 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSecurityAlerts } from "@/hooks/useSecurityAlerts";
 import { LoadingSpinner } from "@/components/ui/spinner";
 import Auth from "./pages/Auth";
 import Login from "./pages/Login";
@@ -17,6 +18,9 @@ import LandingPage from "./pages/LandingPage";
 
 const App = () => {
   const { user, loading } = useAuth();
+  
+  // Enable security alerts for authenticated users
+  useSecurityAlerts();
 
   if (loading) {
     return (

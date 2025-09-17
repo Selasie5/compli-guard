@@ -12,9 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Settings, Bell, Shield, Camera, Save } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { User, Settings, Bell, Shield, Camera, Save, Key, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNotifications } from "@/hooks/useNotifications";
 import { toast } from "sonner";
 
 const profileSchema = z.object({
@@ -35,13 +37,28 @@ const notificationSchema = z.object({
   security_alerts: z.boolean(),
 });
 
+const passwordSchema = z.object({
+  current_password: z.string().min(1, "Current password is required"),
+  new_password: z.string().min(6, "Password must be at least 6 characters"),
+  confirm_password: z.string().min(1, "Please confirm your password"),
+}).refine((data) => data.new_password === data.confirm_password, {
+  message: "Passwords don't match",
+  path: ["confirm_password"],
+});
+
 type ProfileFormData = z.infer<typeof profileSchema>;
 type NotificationFormData = z.infer<typeof notificationSchema>;
+type PasswordFormData = z.infer<typeof passwordSchema>;
 
 const Profile = () => {
   const { user } = useAuth();
+  const { requestPermission, sendBrowserNotification, permission, isSupported } = useNotifications();
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 
   const profileForm = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -64,6 +81,15 @@ const Profile = () => {
       browser: true,
       scan_complete: true,
       security_alerts: true,
+    },
+  });
+
+  const passwordForm = useForm<PasswordFormData>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: {
+      current_password: '',
+      new_password: '',
+      confirm_password: '',
     },
   });
 
@@ -178,11 +204,74 @@ const Profile = () => {
 
       toast.success('Notification preferences updated!');
       await loadProfile();
+
+      // Request browser notification permission if enabled
+      if (values.browser && isSupported && permission !== 'granted') {
+        const granted = await requestPermission();
+        if (granted) {
+          sendBrowserNotification('Browser notifications enabled!', {
+            body: 'You will now receive browser notifications for scans and security alerts.',
+          });
+        }
+      }
     } catch (error) {
       console.error('Error updating notifications:', error);
       toast.error('Failed to update notification preferences');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (values: PasswordFormData) => {
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      // First verify current password by attempting to sign in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: values.current_password,
+      });
+
+      if (signInError) {
+        toast.error('Current password is incorrect');
+        return;
+      }
+
+      // Update password
+      const { error } = await supabase.auth.updateUser({
+        password: values.new_password,
+      });
+
+      if (error) throw error;
+
+      toast.success('Password updated successfully!');
+      passwordForm.reset();
+      setPasswordDialogOpen(false);
+    } catch (error: any) {
+      console.error('Error updating password:', error);
+      toast.error(error.message || 'Failed to update password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const testNotifications = async () => {
+    if (isSupported && permission === 'granted') {
+      sendBrowserNotification('Test Notification', {
+        body: 'This is a test notification from CompliGuard!',
+        icon: '/favicon.ico',
+      });
+      toast.success('Test notification sent!');
+    } else if (isSupported && permission !== 'granted') {
+      const granted = await requestPermission();
+      if (granted) {
+        sendBrowserNotification('Notifications Enabled!', {
+          body: 'Browser notifications are now enabled for CompliGuard.',
+        });
+      }
+    } else {
+      toast.error('Browser notifications are not supported');
     }
   };
 
@@ -429,14 +518,32 @@ const Profile = () => {
                             <FormLabel className="text-base">Browser Notifications</FormLabel>
                             <FormDescription>
                               Show notifications in your browser
+                              {isSupported && permission !== 'granted' && (
+                                <span className="text-amber-600"> (Permission required)</span>
+                              )}
+                              {!isSupported && (
+                                <span className="text-muted-foreground"> (Not supported)</span>
+                              )}
                             </FormDescription>
                           </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={testNotifications}
+                              disabled={!isSupported}
+                            >
+                              Test
+                            </Button>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                disabled={!isSupported}
+                              />
+                            </FormControl>
+                          </div>
                         </FormItem>
                       )}
                     />
@@ -509,12 +616,140 @@ const Profile = () => {
                 <div>
                   <h4 className="font-medium">Password</h4>
                   <p className="text-sm text-muted-foreground">
-                    Last changed: Never
+                    Update your account password
                   </p>
                 </div>
-                <Button variant="outline" disabled>
-                  Change Password (Coming Soon)
-                </Button>
+                <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">
+                      <Key className="h-4 w-4 mr-2" />
+                      Change Password
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Change Password</DialogTitle>
+                      <DialogDescription>
+                        Enter your current password and choose a new one.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <Form {...passwordForm}>
+                      <form onSubmit={passwordForm.handleSubmit(handlePasswordSubmit)} className="space-y-4">
+                        <FormField
+                          control={passwordForm.control}
+                          name="current_password"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Current Password</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <Input
+                                    type={showCurrentPassword ? "text" : "password"}
+                                    placeholder="Enter current password"
+                                    {...field}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                  >
+                                    {showCurrentPassword ? (
+                                      <EyeOff className="h-4 w-4" />
+                                    ) : (
+                                      <Eye className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={passwordForm.control}
+                          name="new_password"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>New Password</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <Input
+                                    type={showNewPassword ? "text" : "password"}
+                                    placeholder="Enter new password"
+                                    {...field}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                    onClick={() => setShowNewPassword(!showNewPassword)}
+                                  >
+                                    {showNewPassword ? (
+                                      <EyeOff className="h-4 w-4" />
+                                    ) : (
+                                      <Eye className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={passwordForm.control}
+                          name="confirm_password"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Confirm New Password</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <Input
+                                    type={showConfirmPassword ? "text" : "password"}
+                                    placeholder="Confirm new password"
+                                    {...field}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                  >
+                                    {showConfirmPassword ? (
+                                      <EyeOff className="h-4 w-4" />
+                                    ) : (
+                                      <Eye className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="flex justify-end space-x-2 pt-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setPasswordDialogOpen(false)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button type="submit" disabled={loading}>
+                            {loading ? 'Updating...' : 'Update Password'}
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
               </div>
 
               <div className="flex items-center justify-between p-4 border rounded-lg">

@@ -232,6 +232,13 @@ export const useIntegrations = create<IntegrationsStore>((set, get) => ({
             isScanning: false, 
             scanStatus: 'Scan failed: ' + error.message 
           });
+          
+          // Show error toast
+          setTimeout(() => {
+            import('sonner').then(({ toast }) => {
+              toast.error('Scan failed: ' + error.message);
+            });
+          }, 0);
           return;
         }
 
@@ -297,6 +304,50 @@ export const useIntegrations = create<IntegrationsStore>((set, get) => ({
                 toast.success(`Scan completed! Found ${scanSession.total_findings || 0} findings.`);
               });
             }, 0);
+
+            // Send notifications based on user preferences
+            setTimeout(async () => {
+              try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return;
+
+                const { data: profile } = await supabase
+                  .from('profiles')
+                  .select('notification_preferences')
+                  .eq('user_id', user.id)
+                  .single();
+
+                const notifications = (profile?.notification_preferences as any) || {};
+                
+                // Send email notification
+                if (notifications.email !== false && notifications.scan_complete !== false) {
+                  await supabase.functions.invoke('send-notification', {
+                    body: {
+                      user_id: user.id,
+                      type: 'scan_complete',
+                      data: {
+                        findings_count: scanSession.total_findings || 0,
+                        critical_findings: get().findings.filter(f => f.severity === 'critical').length,
+                        high_findings: get().findings.filter(f => f.severity === 'high').length,
+                        scan_id: scanId,
+                      },
+                    },
+                  });
+                }
+
+                // Send browser notification
+                if (notifications.browser !== false && notifications.scan_complete !== false) {
+                  if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('Security Scan Completed', {
+                      body: `Found ${scanSession.total_findings || 0} security findings`,
+                      icon: '/favicon.ico',
+                    });
+                  }
+                }
+              } catch (error) {
+                console.error('Error sending notifications:', error);
+              }
+            }, 100);
             
           } else if (scanSession.status === 'error') {
             clearInterval(pollInterval);
