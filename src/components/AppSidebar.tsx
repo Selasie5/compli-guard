@@ -6,7 +6,8 @@ import {
   Settings,
   Shield,
   ChevronRight,
-  Building2
+  Building2,
+  BookOpen
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -31,6 +32,7 @@ const mainItems = [
 
 const managementItems = [
   { title: "Integrations", url: "/integrations", icon: Settings },
+  { title: "Documentation", url: "/documentation", icon: BookOpen },
 ];
 
 export function AppSidebar() {
