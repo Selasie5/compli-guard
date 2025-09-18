@@ -21,13 +21,13 @@ import { toast } from "sonner";
 
 const profileSchema = z.object({
   display_name: z.string().min(1, "Display name is required"),
-  first_name: z.string().optional(),
-  last_name: z.string().optional(),
-  bio: z.string().optional(),
-  company: z.string().optional(),
-  role: z.string().optional(),
-  phone: z.string().optional(),
-  timezone: z.string().optional(),
+  first_name: z.string().optional().or(z.literal('')),
+  last_name: z.string().optional().or(z.literal('')),
+  bio: z.string().optional().or(z.literal('')),
+  company: z.string().optional().or(z.literal('')),
+  role: z.string().optional().or(z.literal('')),
+  phone: z.string().optional().or(z.literal('')),
+  timezone: z.string().min(1, "Timezone is required"),
 });
 
 const notificationSchema = z.object({
@@ -107,16 +107,18 @@ const Profile = () => {
         .from('profiles')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-        throw error;
+      if (error) {
+        console.error('Error loading profile:', error);
+        toast.error(`Failed to load profile: ${error.message}`);
+        return;
       }
 
       if (data) {
         setProfile(data);
         profileForm.reset({
-          display_name: data.display_name || '',
+          display_name: data.display_name || user.email || '',
           first_name: data.first_name || '',
           last_name: data.last_name || '',
           bio: data.bio || '',
@@ -134,12 +136,12 @@ const Profile = () => {
           security_alerts: notifications.security_alerts !== false,
         });
       } else {
-        // Create profile if it doesn't exist
+        // No profile exists, create one
         await createProfile();
       }
-    } catch (error) {
-      console.error('Error loading profile:', error);
-      toast.error('Failed to load profile');
+    } catch (error: any) {
+      console.error('Unexpected error loading profile:', error);
+      toast.error(`Unexpected error: ${error.message || 'Unknown error'}`);
     }
   };
 
@@ -147,49 +149,96 @@ const Profile = () => {
     if (!user) return;
 
     try {
+      const profileData = {
+        user_id: user.id,
+        email: user.email,
+        display_name: user.email || 'User',
+        timezone: 'UTC',
+        notification_preferences: {
+          email: true,
+          browser: true,
+          scan_complete: true,
+          security_alerts: true
+        }
+      };
+
       const { error } = await supabase
         .from('profiles')
-        .insert({
-          user_id: user.id,
-          email: user.email,
-          display_name: user.email,
-        });
+        .insert(profileData);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating profile:', error);
+        toast.error(`Failed to create profile: ${error.message}`);
+        return;
+      }
       
+      toast.success('Profile created successfully!');
       await loadProfile();
-    } catch (error) {
-      console.error('Error creating profile:', error);
+    } catch (error: any) {
+      console.error('Unexpected error creating profile:', error);
+      toast.error(`Failed to create profile: ${error.message || 'Unknown error'}`);
     }
   };
 
   const handleProfileSubmit = async (values: ProfileFormData) => {
-    if (!user) return;
+    if (!user) {
+      toast.error('You must be logged in to update your profile');
+      return;
+    }
 
     setLoading(true);
     try {
+      // Clean the data - convert empty strings to null for optional fields
+      const cleanedData = {
+        user_id: user.id,
+        display_name: values.display_name.trim(),
+        first_name: values.first_name?.trim() || null,
+        last_name: values.last_name?.trim() || null,
+        bio: values.bio?.trim() || null,
+        company: values.company?.trim() || null,
+        role: values.role?.trim() || null,
+        phone: values.phone?.trim() || null,
+        timezone: values.timezone || 'UTC',
+        email: user.email,
+      };
+
       const { error } = await supabase
         .from('profiles')
-        .upsert({
-          user_id: user.id,
-          ...values,
-          email: user.email,
+        .upsert(cleanedData, {
+          onConflict: 'user_id'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Profile update error:', error);
+        
+        // Provide specific error messages based on error type
+        if (error.code === '23505') {
+          toast.error('A profile with this information already exists');
+        } else if (error.code === '23502') {
+          toast.error('Required field is missing. Please check all required fields are filled.');
+        } else if (error.message.includes('row-level security')) {
+          toast.error('Permission denied. Please ensure you are logged in properly.');
+        } else {
+          toast.error(`Failed to update profile: ${error.message}`);
+        }
+        return;
+      }
 
       toast.success('Profile updated successfully!');
       await loadProfile();
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      toast.error('Failed to update profile');
+    } catch (error: any) {
+      console.error('Unexpected error updating profile:', error);
+      toast.error(`Unexpected error: ${error.message || 'Please check your input and try again'}`);
     } finally {
       setLoading(false);
     }
   };
 
   const handleNotificationSubmit = async (values: NotificationFormData) => {
-    if (!user) return;
+    if (!user) {
+      toast.error('You must be logged in to update notification preferences');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -200,7 +249,15 @@ const Profile = () => {
         })
         .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Notification update error:', error);
+        if (error.message.includes('row-level security')) {
+          toast.error('Permission denied. Please ensure you are logged in properly.');
+        } else {
+          toast.error(`Failed to update notification preferences: ${error.message}`);
+        }
+        return;
+      }
 
       toast.success('Notification preferences updated!');
       await loadProfile();
@@ -212,18 +269,23 @@ const Profile = () => {
           sendBrowserNotification('Browser notifications enabled!', {
             body: 'You will now receive browser notifications for scans and security alerts.',
           });
+        } else {
+          toast.warning('Browser notification permission was denied. You can enable it later in your browser settings.');
         }
       }
-    } catch (error) {
-      console.error('Error updating notifications:', error);
-      toast.error('Failed to update notification preferences');
+    } catch (error: any) {
+      console.error('Unexpected error updating notifications:', error);
+      toast.error(`Unexpected error: ${error.message || 'Please try again'}`);
     } finally {
       setLoading(false);
     }
   };
 
   const handlePasswordSubmit = async (values: PasswordFormData) => {
-    if (!user) return;
+    if (!user) {
+      toast.error('You must be logged in to change your password');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -234,7 +296,11 @@ const Profile = () => {
       });
 
       if (signInError) {
-        toast.error('Current password is incorrect');
+        if (signInError.message.includes('Invalid login credentials')) {
+          toast.error('Current password is incorrect');
+        } else {
+          toast.error(`Authentication error: ${signInError.message}`);
+        }
         return;
       }
 
@@ -243,14 +309,21 @@ const Profile = () => {
         password: values.new_password,
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('Password should be at least')) {
+          toast.error('New password does not meet security requirements. Please use at least 6 characters.');
+        } else {
+          toast.error(`Failed to update password: ${error.message}`);
+        }
+        return;
+      }
 
       toast.success('Password updated successfully!');
       passwordForm.reset();
       setPasswordDialogOpen(false);
     } catch (error: any) {
-      console.error('Error updating password:', error);
-      toast.error(error.message || 'Failed to update password');
+      console.error('Unexpected error updating password:', error);
+      toast.error(`Unexpected error: ${error.message || 'Please try again'}`);
     } finally {
       setLoading(false);
     }
@@ -300,7 +373,7 @@ const Profile = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Profile Settings</h1>
           <p className="text-muted-foreground">
-            Manage your account settings and preferences
+            Manage your account settings and preferences. Fields marked with * are required.
           </p>
         </div>
 
@@ -343,10 +416,13 @@ const Profile = () => {
                       name="display_name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Display Name</FormLabel>
+                          <FormLabel>Display Name *</FormLabel>
                           <FormControl>
-                            <Input placeholder="Your display name" {...field} />
+                            <Input placeholder="Your display name *" {...field} />
                           </FormControl>
+                          <FormDescription className="text-xs">
+                            This is how your name will appear throughout the application
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -357,11 +433,11 @@ const Profile = () => {
                       name="timezone"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Timezone</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormLabel>Timezone *</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select timezone" />
+                                <SelectValue placeholder="Select timezone *" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
