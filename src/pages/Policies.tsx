@@ -5,10 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileText, Download, Edit, Plus, Clock, CheckCircle2, Shield, AlertTriangle } from "lucide-react";
 import { useIntegrations } from "@/hooks/useIntegrations";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import PolicyModal from "@/components/PolicyModal";
 
 const Policies = () => {
   const { findings, loadIntegrations } = useIntegrations();
+  const [selectedPolicy, setSelectedPolicy] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     loadIntegrations();
@@ -89,6 +92,121 @@ const Policies = () => {
     return Array.from(policyMap.values());
   }, [findings]);
 
+  const handlePreviewPolicy = (policy: any) => {
+    setSelectedPolicy(policy);
+    setIsModalOpen(true);
+  };
+
+  const handleDownloadPolicy = (policy: any) => {
+    const policyDocument = {
+      title: policy.title,
+      version: policy.version,
+      lastUpdated: policy.lastUpdated,
+      status: policy.status,
+      description: policy.description,
+      controls: policy.controls,
+      overview: `This policy document outlines the requirements and procedures for ${policy.title.toLowerCase()}. It is designed to ensure compliance with security standards and regulatory requirements.`,
+      scope: "This policy applies to all systems, applications, and personnel within the organization.",
+      requirements: [
+        "All personnel must comply with this policy",
+        "Regular reviews and updates must be conducted", 
+        "Violations must be reported and addressed promptly",
+        "Training must be provided to relevant personnel"
+      ],
+      procedures: policy.findings.length > 0 
+        ? policy.findings.map((finding: any) => ({
+            control: finding.control,
+            requirement: finding.description,
+            severity: finding.severity,
+            resource: finding.resource,
+            remediation: getRemediationSuggestion(finding)
+          }))
+        : [{
+            control: policy.controls[0],
+            requirement: "Maintain compliance with security standards",
+            severity: "informational", 
+            resource: "All systems",
+            remediation: "Continue current practices and monitor for changes"
+          }],
+      compliance: {
+        status: policy.status,
+        findingsCount: policy.findings.length,
+        lastAssessment: policy.lastUpdated,
+        nextReview: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      }
+    };
+
+    const blob = new Blob([JSON.stringify(policyDocument, null, 2)], {
+      type: 'application/json'
+    });
+    
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${policy.title.replace(/\s+/g, '_').toLowerCase()}_policy.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportAll = () => {
+    const allPolicies = generatedPolicies.map(policy => ({
+      title: policy.title,
+      version: policy.version,
+      lastUpdated: policy.lastUpdated,
+      status: policy.status,
+      description: policy.description,
+      controls: policy.controls,
+      findingsCount: policy.findings.length,
+      findings: policy.findings.map((finding: any) => ({
+        control: finding.control,
+        description: finding.description,
+        severity: finding.severity,
+        resource: finding.resource
+      }))
+    }));
+
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      totalPolicies: generatedPolicies.length,
+      compliantPolicies: generatedPolicies.filter(p => p.findings.length === 0).length,
+      policiesNeedingAttention: generatedPolicies.filter(p => p.findings.length > 0).length,
+      policies: allPolicies
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: 'application/json'
+    });
+    
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `all_policies_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const getRemediationSuggestion = (finding: any) => {
+    const control = finding.control?.toLowerCase() || '';
+    const description = finding.description?.toLowerCase() || '';
+    
+    if (control.includes('access') || description.includes('access')) {
+      return "Review and update access controls, implement principle of least privilege";
+    } else if (control.includes('encryption') || description.includes('encrypt')) {
+      return "Implement proper encryption standards and key management";
+    } else if (control.includes('monitoring') || description.includes('log')) {
+      return "Enable comprehensive logging and monitoring systems";
+    } else if (control.includes('incident') || description.includes('response')) {
+      return "Establish incident response procedures and communication plans";
+    } else if (control.includes('change') || description.includes('change')) {
+      return "Implement formal change management and approval processes";
+    }
+    return "Address the identified security gap according to best practices";
+  };
+
   return (
     <Layout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -146,7 +264,7 @@ const Policies = () => {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Policy Details</CardTitle>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={handleExportAll}>
                     <Download className="h-4 w-4 mr-2" />
                     Export All
                   </Button>
@@ -213,10 +331,22 @@ const Policies = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-1">
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0"
+                              onClick={() => handlePreviewPolicy(policy)}
+                              title="Preview Policy"
+                            >
                               <FileText className="h-3 w-3" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0"
+                              onClick={() => handleDownloadPolicy(policy)}
+                              title="Download Policy"
+                            >
                               <Download className="h-3 w-3" />
                             </Button>
                           </div>
@@ -229,6 +359,12 @@ const Policies = () => {
             </Card>
           </div>
         )}
+
+        <PolicyModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          policy={selectedPolicy}
+        />
       </div>
     </Layout>
   );
