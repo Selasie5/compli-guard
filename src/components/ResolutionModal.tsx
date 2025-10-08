@@ -3,7 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, GitPullRequest, ExternalLink, Code, FileText, AlertTriangle } from "lucide-react";
+import { CheckCircle2, GitPullRequest, ExternalLink, Code, FileText, AlertTriangle, Sparkles, Loader2, Shield } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from "react";
 
 interface Finding {
   id: string;
@@ -22,6 +25,53 @@ interface ResolutionModalProps {
 }
 
 const ResolutionModal = ({ isOpen, onClose, finding }: ResolutionModalProps) => {
+  const { toast } = useToast();
+  const [aiRemediation, setAiRemediation] = useState<any>(null);
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && finding) {
+      setAiRemediation(null);
+    }
+  }, [isOpen, finding]);
+
+  const generateAIFix = async () => {
+    if (!finding) return;
+    
+    setIsLoadingAI(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-remediation', {
+        body: { finding }
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        toast({
+          title: "AI Error",
+          description: data.error,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setAiRemediation(data.remediation);
+      toast({
+        title: "AI Remediation Generated",
+        description: "Review the AI-powered fix recommendations below",
+      });
+    } catch (error: any) {
+      console.error('AI remediation error:', error);
+      toast({
+        title: "Failed to generate AI fix",
+        description: error.message || "Please try again later",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingAI(false);
+    }
+  };
+
   if (!finding) return null;
 
   const getResolutionSteps = (finding: Finding) => {
@@ -219,14 +269,146 @@ gh api repos/:owner/:repo/branches/main/protection \\
               <CardTitle className="text-lg">Resolution Options</CardTitle>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="manual" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+              <Tabs defaultValue="ai" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="ai">
+                    <Sparkles className="w-4 h-4 mr-1" />
+                    AI Assistant
+                  </TabsTrigger>
                   <TabsTrigger value="manual">Manual Steps</TabsTrigger>
                   <TabsTrigger value="automated" disabled={!resolution.automated}>
                     Automated Fix
                   </TabsTrigger>
                   <TabsTrigger value="code">Code/CLI</TabsTrigger>
                 </TabsList>
+
+                <TabsContent value="ai" className="space-y-4 mt-4">
+                  <div className="space-y-4">
+                    {!aiRemediation ? (
+                      <div className="text-center py-8 space-y-4">
+                        <Sparkles className="w-12 h-12 mx-auto text-primary" />
+                        <h3 className="text-lg font-semibold">AI-Powered Remediation</h3>
+                        <p className="text-muted-foreground max-w-md mx-auto">
+                          Get intelligent, context-aware fix recommendations powered by AI. 
+                          We'll analyze this finding and provide step-by-step guidance.
+                        </p>
+                        <Button 
+                          onClick={generateAIFix} 
+                          disabled={isLoadingAI}
+                          className="mt-4"
+                        >
+                          {isLoadingAI ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-4 h-4 mr-2" />
+                              Generate AI Fix
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="p-4 bg-primary/5 rounded-lg border">
+                          <h4 className="font-semibold mb-2">Summary</h4>
+                          <p className="text-sm">{aiRemediation.summary}</p>
+                        </div>
+
+                        {aiRemediation.risk_analysis && (
+                          <div className="p-4 bg-destructive/5 rounded-lg border border-destructive/20">
+                            <h4 className="font-semibold mb-2 flex items-center">
+                              <Shield className="w-4 h-4 mr-2" />
+                              Risk Analysis
+                            </h4>
+                            <p className="text-sm">{aiRemediation.risk_analysis}</p>
+                          </div>
+                        )}
+
+                        {aiRemediation.remediation_steps?.length > 0 && (
+                          <div className="space-y-3">
+                            <h4 className="font-semibold">Remediation Steps</h4>
+                            {aiRemediation.remediation_steps.map((step: any, idx: number) => (
+                              <div key={idx} className="p-4 border rounded-lg space-y-2">
+                                <div className="flex items-start gap-3">
+                                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold">
+                                    {step.step || idx + 1}
+                                  </div>
+                                  <div className="flex-1">
+                                    <h5 className="font-semibold text-sm">{step.title}</h5>
+                                    <p className="text-sm text-muted-foreground mt-1">{step.description}</p>
+                                    {step.code_example && (
+                                      <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-x-auto">
+                                        <code>{step.code_example}</code>
+                                      </pre>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {aiRemediation.prevention_tips?.length > 0 && (
+                          <div className="p-4 bg-green-500/5 rounded-lg border border-green-500/20">
+                            <h4 className="font-semibold mb-2">Prevention Tips</h4>
+                            <ul className="list-disc list-inside space-y-1 text-sm">
+                              {aiRemediation.prevention_tips.map((tip: string, idx: number) => (
+                                <li key={idx}>{tip}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-sm">
+                          {aiRemediation.estimated_time && (
+                            <span className="text-muted-foreground">
+                              ⏱️ Estimated time: {aiRemediation.estimated_time}
+                            </span>
+                          )}
+                          {aiRemediation.difficulty && (
+                            <Badge variant={
+                              aiRemediation.difficulty === 'easy' ? 'default' : 
+                              aiRemediation.difficulty === 'medium' ? 'secondary' : 
+                              'destructive'
+                            }>
+                              {aiRemediation.difficulty}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {aiRemediation.compliance_references?.length > 0 && (
+                          <div className="text-xs text-muted-foreground">
+                            <span className="font-semibold">Compliance: </span>
+                            {aiRemediation.compliance_references.join(', ')}
+                          </div>
+                        )}
+
+                        <Button 
+                          onClick={generateAIFix} 
+                          variant="outline" 
+                          size="sm"
+                          disabled={isLoadingAI}
+                          className="w-full"
+                        >
+                          {isLoadingAI ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Regenerating...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-4 h-4 mr-2" />
+                              Regenerate AI Fix
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
 
                 <TabsContent value="manual" className="space-y-4 mt-4">
                   <div className="space-y-2">

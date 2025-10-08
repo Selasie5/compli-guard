@@ -23,6 +23,9 @@ enabled = true
 [functions.github-scan]
 verify_jwt = true
 
+[functions.ai-remediation]
+verify_jwt = true
+
 [storage]
 enabled = true
 port = 54325
