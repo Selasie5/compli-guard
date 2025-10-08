@@ -411,20 +411,87 @@ gh api repos/:owner/:repo/branches/main/protection \\
                 </TabsContent>
 
                 <TabsContent value="manual" className="space-y-4 mt-4">
-                  <div className="space-y-2">
-                    {resolution.manual.map((step, index) => (
-                      <div key={index} className="flex items-start space-x-3 p-3 bg-secondary/30 rounded-lg">
-                        <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">
-                          {index + 1}
+                  {aiRemediation?.remediation_steps?.length > 0 ? (
+                    <div className="space-y-2">
+                      {aiRemediation.remediation_steps.map((step: any, index: number) => (
+                        <div key={index} className="flex items-start space-x-3 p-3 bg-secondary/30 rounded-lg">
+                          <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">
+                            {step.step || index + 1}
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-sm mb-1">{step.title}</div>
+                            <div className="text-sm text-muted-foreground">{step.description}</div>
+                          </div>
                         </div>
-                        <div className="text-sm">{step}</div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {resolution.manual.map((step, index) => (
+                        <div key={index} className="flex items-start space-x-3 p-3 bg-secondary/30 rounded-lg">
+                          <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">
+                            {index + 1}
+                          </div>
+                          <div className="text-sm">{step}</div>
+                        </div>
+                      ))}
+                      <div className="mt-4 p-4 bg-muted rounded-lg text-sm text-muted-foreground">
+                        💡 Tip: Generate AI-powered remediation for context-specific steps
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="automated" className="space-y-4 mt-4">
-                  {resolution.automated ? (
+                  {aiRemediation?.remediation_steps?.length > 0 && finding.can_autofix ? (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-primary/5 rounded-lg border">
+                        <h4 className="font-semibold mb-2">Automated Fix Available</h4>
+                        <p className="text-sm text-muted-foreground">
+                          The following steps can be automated. Review the changes before applying.
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {aiRemediation.remediation_steps
+                          .filter((step: any) => step.code_example)
+                          .map((step: any, index: number) => (
+                            <div key={index} className="p-3 border rounded-lg space-y-2">
+                              <div className="flex items-start gap-2">
+                                <CheckCircle2 className="h-4 w-4 text-compliance-excellent mt-0.5 flex-shrink-0" />
+                                <div className="flex-1">
+                                  <div className="font-medium text-sm">{step.title}</div>
+                                  <div className="text-xs text-muted-foreground mt-1">{step.description}</div>
+                                  {step.code_example && (
+                                    <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-x-auto">
+                                      <code>{step.code_example}</code>
+                                    </pre>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+
+                      <Button 
+                        className="w-full"
+                        onClick={() => {
+                          const commands = aiRemediation.remediation_steps
+                            .filter((step: any) => step.code_example)
+                            .map((step: any) => step.code_example)
+                            .join('\n\n');
+                          navigator.clipboard.writeText(commands);
+                          toast({
+                            title: "Commands Copied",
+                            description: "All automated fix commands have been copied to your clipboard.",
+                          });
+                        }}
+                      >
+                        <Code className="h-4 w-4 mr-2" />
+                        Copy All Commands to Clipboard
+                      </Button>
+                    </div>
+                  ) : resolution.automated ? (
                     <div className="space-y-4">
                       <div className="space-y-2">
                         {resolution.automated.map((step, index) => (
@@ -434,29 +501,66 @@ gh api repos/:owner/:repo/branches/main/protection \\
                           </div>
                         ))}
                       </div>
-                      <Button className="w-full" disabled>
-                        <GitPullRequest className="h-4 w-4 mr-2" />
-                        Apply Automated Fix (Coming Soon)
-                      </Button>
+                      <div className="p-4 bg-muted rounded-lg text-sm text-muted-foreground">
+                        💡 Generate AI remediation to get executable commands
+                      </div>
                     </div>
                   ) : (
                     <div className="text-center py-8">
                       <GitPullRequest className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <p className="text-muted-foreground">Automated fix not available for this finding</p>
-                      <p className="text-sm text-muted-foreground">Please use manual resolution steps</p>
+                      <p className="text-sm text-muted-foreground mt-2">Please use manual resolution steps or generate AI remediation</p>
                     </div>
                   )}
                 </TabsContent>
 
                 <TabsContent value="code" className="space-y-4 mt-4">
-                  <div className="bg-secondary/50 p-4 rounded-lg">
-                    <pre className="text-sm overflow-x-auto">
-                      <code>{resolution.code}</code>
-                    </pre>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    * Always test commands in a non-production environment first
-                  </div>
+                  {aiRemediation?.remediation_steps?.some((step: any) => step.code_example) ? (
+                    <div className="space-y-4">
+                      {aiRemediation.remediation_steps
+                        .filter((step: any) => step.code_example)
+                        .map((step: any, index: number) => (
+                          <div key={index} className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-semibold">{step.title}</h4>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(step.code_example);
+                                  toast({
+                                    title: "Copied!",
+                                    description: "Code copied to clipboard",
+                                  });
+                                }}
+                              >
+                                <Code className="h-3 w-3 mr-1" />
+                                Copy
+                              </Button>
+                            </div>
+                            <div className="bg-secondary/50 p-4 rounded-lg">
+                              <pre className="text-sm overflow-x-auto">
+                                <code>{step.code_example}</code>
+                              </pre>
+                            </div>
+                          </div>
+                        ))}
+                      <div className="text-xs text-muted-foreground">
+                        ⚠️ Always test commands in a non-production environment first
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="bg-secondary/50 p-4 rounded-lg">
+                        <pre className="text-sm overflow-x-auto">
+                          <code>{resolution.code}</code>
+                        </pre>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        💡 Generate AI remediation for context-specific code examples
+                      </div>
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
             </CardContent>
