@@ -16,33 +16,29 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are a cybersecurity compliance expert specializing in cloud security, infrastructure-as-code, and DevOps security. 
-Your role is to provide actionable, step-by-step remediation guidance for security findings.
+    const systemPrompt = `You are a cybersecurity compliance expert. Analyze security findings and provide remediation guidance.
 
-For each finding, provide:
-1. Clear explanation of the security risk
-2. Specific step-by-step remediation instructions
-3. Code snippets or configuration examples where applicable
-4. Best practices to prevent recurrence
-5. Compliance framework references (e.g., CIS, NIST, SOC2)
+CRITICAL: Respond with ONLY valid JSON. No markdown, no code blocks, no extra text.
 
-Format your response as structured JSON with these fields:
+Return this exact JSON structure:
 {
-  "summary": "Brief overview of the issue",
-  "risk_analysis": "Detailed explanation of security risks",
+  "summary": "Brief 2-3 sentence overview of the issue and fix",
+  "risk_analysis": "Detailed explanation of security risks and potential impact",
   "remediation_steps": [
     {
       "step": 1,
-      "title": "Step title",
-      "description": "What to do",
-      "code_example": "Optional code snippet"
+      "title": "Clear, actionable step title",
+      "description": "Detailed step-by-step instructions",
+      "code_example": "Actual code/command/config or null"
     }
   ],
-  "prevention_tips": ["Tip 1", "Tip 2"],
-  "compliance_references": ["Framework 1", "Framework 2"],
-  "estimated_time": "Time to fix",
-  "difficulty": "easy|medium|hard"
-}`;
+  "prevention_tips": ["Specific actionable tip 1", "Specific tip 2"],
+  "estimated_time": "Realistic estimate like 10-15 minutes",
+  "difficulty": "easy|medium|hard",
+  "compliance_references": ["Specific framework reference like CIS 1.2.3 or NIST 800-53 AC-2"]
+}
+
+Include 3-7 clear remediation steps with code examples where applicable.`;
 
     const userPrompt = `Provide detailed remediation guidance for this security finding:
 
@@ -90,18 +86,51 @@ ${finding.evidence ? `Evidence: ${JSON.stringify(finding.evidence)}` : ''}`;
     }
 
     const data = await response.json();
-    const aiResponse = data.choices[0].message.content;
+    let aiResponse = data.choices[0].message.content;
     
-    // Try to parse as JSON, fallback to structured text
+    console.log('Raw AI response:', aiResponse);
+    
+    // Strip markdown code blocks if present (common AI behavior)
+    aiResponse = aiResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    
+    // Try to parse as JSON with better error handling
     let remediation;
     try {
-      remediation = JSON.parse(aiResponse);
+      const parsed = JSON.parse(aiResponse);
+      
+      // Normalize the structure to ensure consistency
+      remediation = {
+        summary: parsed.summary || "AI-generated remediation guidance",
+        risk_analysis: parsed.risk_analysis || parsed.risk || null,
+        remediation_steps: Array.isArray(parsed.remediation_steps) 
+          ? parsed.remediation_steps.map((step: any, idx: number) => ({
+              step: step.step || idx + 1,
+              title: step.title || `Step ${idx + 1}`,
+              description: step.description || "",
+              code_example: step.code_example || null
+            }))
+          : [],
+        prevention_tips: Array.isArray(parsed.prevention_tips) ? parsed.prevention_tips : [],
+        estimated_time: parsed.estimated_time || null,
+        difficulty: parsed.difficulty || "medium",
+        compliance_references: Array.isArray(parsed.compliance_references) ? parsed.compliance_references : []
+      };
+      
+      console.log('Parsed and normalized remediation:', JSON.stringify(remediation, null, 2));
     } catch (e) {
-      // If not valid JSON, structure it ourselves
+      console.error('Failed to parse AI response:', e);
+      console.log('Attempted to parse:', aiResponse);
+      
+      // Fallback: wrap the text response in a basic structure
       remediation = {
         summary: "AI-generated remediation guidance",
         risk_analysis: aiResponse,
-        remediation_steps: [],
+        remediation_steps: [{
+          step: 1,
+          title: "Review AI Guidance",
+          description: aiResponse,
+          code_example: null
+        }],
         prevention_tips: [],
         compliance_references: [],
         estimated_time: "Varies",
