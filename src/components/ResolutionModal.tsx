@@ -270,7 +270,7 @@ gh api repos/:owner/:repo/branches/main/protection \\
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="ai" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="flex flex-row w-full">
                   <TabsTrigger value="ai">
                     <Sparkles className="w-4 h-4 mr-1" />
                     AI Assistant
