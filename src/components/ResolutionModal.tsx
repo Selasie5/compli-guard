@@ -28,6 +28,7 @@ const ResolutionModal = ({ isOpen, onClose, finding }: ResolutionModalProps) => 
   const { toast } = useToast();
   const [aiRemediation, setAiRemediation] = useState<any>(null);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [isMarkingReviewed, setIsMarkingReviewed] = useState(false);
 
   useEffect(() => {
     if (isOpen && finding) {
@@ -69,6 +70,42 @@ const ResolutionModal = ({ isOpen, onClose, finding }: ResolutionModalProps) => 
       });
     } finally {
       setIsLoadingAI(false);
+    }
+  };
+
+  const handleMarkAsReviewed = async () => {
+    if (!finding) return;
+    
+    setIsMarkingReviewed(true);
+    try {
+      const { error } = await supabase
+        .from('scan_results')
+        .update({ 
+          status: 'reviewed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', finding.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Finding Marked as Reviewed",
+        description: "This finding has been marked as reviewed and your compliance score will be updated.",
+      });
+      
+      onClose();
+      
+      // Trigger a page refresh to update the compliance score
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Error marking finding as reviewed:', error);
+      toast({
+        title: "Failed to mark as reviewed",
+        description: error.message || "Please try again later",
+        variant: "destructive"
+      });
+    } finally {
+      setIsMarkingReviewed(false);
     }
   };
 
@@ -287,12 +324,21 @@ const ResolutionModal = ({ isOpen, onClose, finding }: ResolutionModalProps) => 
 
           {/* Actions */}
           <div className="flex justify-end space-x-3">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={onClose} disabled={isMarkingReviewed}>
               Close
             </Button>
-            <Button onClick={onClose}>
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Mark as Reviewed
+            <Button onClick={handleMarkAsReviewed} disabled={isMarkingReviewed}>
+              {isMarkingReviewed ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Marking as Reviewed...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Mark as Reviewed
+                </>
+              )}
             </Button>
           </div>
         </div>
